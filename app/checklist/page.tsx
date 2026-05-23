@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Check, Loader2, ListChecks, Clock, Trophy } from "lucide-react";
+import { Check, Loader2, ListChecks, Clock, Trophy, GraduationCap } from "lucide-react";
 import { cn, minutesToHuman } from "@/lib/utils";
 import { XPBar } from "@/components/XPBar";
-import type { TaskCategory, TaskDoc, Weekday } from "@/types";
+import type { ScheduleSlot, TaskCategory, TaskDoc, Weekday } from "@/types";
 
 const WEEKDAYS: Weekday[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -36,6 +36,12 @@ const CATEGORY_COLOR: Record<TaskCategory, string> = {
   learning: "badge-success",
 };
 
+function timeLabel(h: number): string {
+  const hour = ((h + 11) % 12) + 1;
+  const ampm = h >= 12 && h < 24 ? "pm" : "am";
+  return `${hour}${ampm}`;
+}
+
 export default function ChecklistPage() {
   const [data, setData] = useState<{
     weekStart: string;
@@ -43,6 +49,7 @@ export default function ChecklistPage() {
     totalMinutes: number;
     totalXp: number;
     earnedXp: number;
+    schedule: ScheduleSlot[];
   } | null>(null);
   const [updating, setUpdating] = useState<string | null>(null);
 
@@ -75,6 +82,15 @@ export default function ChecklistPage() {
   };
   for (const t of data.tasks) tasksByDay[t.day].push(t);
 
+  const classesByDay: Record<Weekday, ScheduleSlot[]> = {
+    Mon: [], Tue: [], Wed: [], Thu: [], Fri: [], Sat: [], Sun: [],
+  };
+  for (const s of data.schedule) classesByDay[s.day].push(s);
+  for (const d of WEEKDAYS) {
+    classesByDay[d].sort((a, b) => a.startHour - b.startHour);
+  }
+  const hasContent = data.tasks.length > 0 || data.schedule.length > 0;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -94,25 +110,58 @@ export default function ChecklistPage() {
         <XPBar earned={data.earnedXp} total={data.totalXp} />
       </div>
 
-      {data.tasks.length === 0 ? (
+      {!hasContent ? (
         <div className="card p-10 text-center">
           <ListChecks className="w-5 h-5 text-accent mx-auto mb-2" />
-          <p className="text-muted-strong">No tasks this week yet. Follow a job/event/course or paste an interview email to populate this checklist.</p>
+          <p className="text-muted-strong">
+            No tasks or classes yet. Add your school schedule in <a href="/onboarding" className="text-accent-glow underline">Profile</a> or follow a job/event/course to populate this checklist.
+          </p>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-3">
           {WEEKDAYS.map((d) => {
             const tasks = tasksByDay[d];
+            const classes = classesByDay[d];
             const dayMins = tasks.reduce((n, t) => n + t.estimatedMinutes, 0);
+            const classMins = classes.reduce((n, c) => n + (c.endHour - c.startHour) * 60, 0);
             return (
               <div key={d} className="card p-3 space-y-2 min-h-[180px]">
                 <div className="flex items-center justify-between">
                   <span className="text-white text-sm font-semibold">{d}</span>
-                  <span className="text-[10px] text-muted">{tasks.length} · {minutesToHuman(dayMins)}</span>
+                  <span className="text-[10px] text-muted">
+                    {classes.length > 0 && (
+                      <span className="text-accent-glow mr-1">{minutesToHuman(classMins)} class</span>
+                    )}
+                    {tasks.length} · {minutesToHuman(dayMins)}
+                  </span>
                 </div>
+
+                {classes.length > 0 && (
+                  <div className="space-y-1">
+                    {classes.map((c, i) => (
+                      <div
+                        key={`${c.day}-${c.startHour}-${i}`}
+                        className="rounded-lg border border-accent/40 bg-accent/10 px-2 py-1.5"
+                        title={`${c.label || "Class"} · ${timeLabel(c.startHour)}–${timeLabel(c.endHour)}`}
+                      >
+                        <div className="flex items-center gap-1.5 text-[10px] text-accent-glow">
+                          <GraduationCap className="w-3 h-3 shrink-0" />
+                          <span className="font-medium truncate">{c.label || "Class"}</span>
+                        </div>
+                        <div className="text-[10px] text-muted mt-0.5">
+                          {timeLabel(c.startHour)}–{timeLabel(c.endHour)}
+                        </div>
+                      </div>
+                    ))}
+                    {tasks.length > 0 && <div className="h-px bg-border my-1" />}
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   {tasks.length === 0 ? (
-                    <p className="text-[11px] text-muted py-4 text-center">Free</p>
+                    <p className="text-[11px] text-muted py-2 text-center">
+                      {classes.length > 0 ? "No tasks scheduled" : "Free"}
+                    </p>
                   ) : (
                     tasks.map((t) => (
                       <button
