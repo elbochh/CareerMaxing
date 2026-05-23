@@ -9,11 +9,10 @@ import type {
   LocationPref,
   OpportunityType,
   PrimaryDomain,
-  ScheduleSlot,
   UserProfile,
-  Weekday,
 } from "@/types";
 import { cn } from "@/lib/utils";
+import { ScheduleEditor } from "@/components/ScheduleEditor";
 
 const DOMAINS: PrimaryDomain[] = [
   "AI general",
@@ -62,8 +61,6 @@ const SKILL_SUGGESTIONS = [
   "Docker",
   "AWS",
 ];
-const WEEKDAYS: Weekday[] = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-
 function ChipToggle<T extends string>({
   label,
   value,
@@ -115,15 +112,6 @@ export default function OnboardingPage() {
 
   function toggleArr<T extends string>(arr: T[], v: T): T[] {
     return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
-  }
-
-  function toggleSchedule(day: Weekday) {
-    setForm((f) => {
-      const has = f.schedule.find((s) => s.day === day);
-      if (has) return { ...f, schedule: f.schedule.filter((s) => s.day !== day) };
-      const slot: ScheduleSlot = { day, startHour: 9, endHour: 15, label: "Classes" };
-      return { ...f, schedule: [...f.schedule, slot] };
-    });
   }
 
   async function save() {
@@ -253,7 +241,7 @@ export default function OnboardingPage() {
 
           {/* Time budget */}
           <section className="card p-6 space-y-4">
-            <h2 className="section-title">Time budget</h2>
+            <h2 className="section-title">Weekly hours</h2>
             <div className="grid md:grid-cols-2 gap-4 items-center">
               <div>
                 <div className="label mb-1">Weekly available hours: {form.weeklyHours}h</div>
@@ -265,26 +253,23 @@ export default function OnboardingPage() {
                   onChange={(e) => setForm({ ...form, weeklyHours: Number(e.target.value) })}
                   className="w-full accent-accent"
                 />
-              </div>
-              <div>
-                <div className="label mb-2">Busy days (9 AM – 3 PM class block)</div>
-                <div className="flex flex-wrap gap-2">
-                  {WEEKDAYS.map((d) => {
-                    const on = form.schedule.find((s) => s.day === d);
-                    return (
-                      <button
-                        key={d}
-                        type="button"
-                        className={on ? "chip-on" : "chip"}
-                        onClick={() => toggleSchedule(d)}
-                      >
-                        {d}
-                      </button>
-                    );
-                  })}
-                </div>
+                <p className="text-[11px] text-muted mt-2">
+                  The Checklist Agent will never schedule more than {form.weeklyHours}h of tasks per week, and will avoid your class times below.
+                </p>
               </div>
             </div>
+          </section>
+
+          {/* School schedule */}
+          <section className="card p-6 space-y-4">
+            <h2 className="section-title">School schedule</h2>
+            <p className="text-xs text-muted">
+              Upload a screenshot of your weekly timetable (OpenAI Vision will read it) or add classes manually. These blocks are protected — the agent will not schedule tasks over them.
+            </p>
+            <ScheduleEditor
+              slots={form.schedule}
+              onChange={(slots) => setForm({ ...form, schedule: slots })}
+            />
           </section>
 
           {/* Skills */}
