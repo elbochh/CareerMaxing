@@ -1,0 +1,130 @@
+[
+  {
+    "title": "LLM Fundamentals: How Large Language Models Work",
+    "provider": "DeepLearning.AI",
+    "level": "beginner",
+    "cost": "free",
+    "estimatedHours": 4,
+    "url": "https://example.com/courses/llm-fundamentals",
+    "domains": ["Generative AI", "Agentic AI", "AI general"],
+    "bestFor": ["Beginners", "Anyone new to LLMs"],
+    "pathWeek": 1
+  },
+  {
+    "title": "Prompt Engineering for Developers",
+    "provider": "DeepLearning.AI",
+    "level": "beginner",
+    "cost": "free",
+    "estimatedHours": 3,
+    "url": "https://example.com/courses/prompt-engineering",
+    "domains": ["Generative AI", "Agentic AI"],
+    "bestFor": ["Developers", "Builders"],
+    "pathWeek": 2
+  },
+  {
+    "title": "OpenAI Function Calling & Tool Use",
+    "provider": "OpenAI Academy",
+    "level": "beginner",
+    "cost": "free",
+    "estimatedHours": 3,
+    "url": "https://example.com/courses/openai-function-calling",
+    "domains": ["Agentic AI", "Generative AI"],
+    "bestFor": ["Aspiring AI agent devs"],
+    "pathWeek": 3
+  },
+  {
+    "title": "RAG for Beginners",
+    "provider": "LangChain Academy",
+    "level": "beginner",
+    "cost": "free",
+    "estimatedHours": 5,
+    "url": "https://example.com/courses/rag-beginners",
+    "domains": ["Agentic AI", "Generative AI", "NLP"],
+    "bestFor": ["RAG learners"],
+    "pathWeek": 4
+  },
+  {
+    "title": "LangChain Agents Course",
+    "provider": "LangChain Academy",
+    "level": "intermediate",
+    "cost": "free",
+    "estimatedHours": 8,
+    "url": "https://example.com/courses/langchain-agents",
+    "domains": ["Agentic AI"],
+    "bestFor": ["Agent builders"],
+    "pathWeek": 5
+  },
+  {
+    "title": "LangGraph Tutorial: Build Stateful Agents",
+    "provider": "LangChain",
+    "level": "intermediate",
+    "cost": "free",
+    "estimatedHours": 6,
+    "url": "https://example.com/courses/langgraph-tutorial",
+    "domains": ["Agentic AI"],
+    "bestFor": ["Multi-step agent builders"],
+    "pathWeek": 6
+  },
+  {
+    "title": "Multi-Agent Systems with CrewAI / AutoGen",
+    "provider": "CrewAI",
+    "level": "intermediate",
+    "cost": "freemium",
+    "estimatedHours": 7,
+    "url": "https://example.com/courses/multi-agent-systems",
+    "domains": ["Agentic AI"],
+    "bestFor": ["Orchestration learners"],
+    "pathWeek": 7
+  },
+  {
+    "title": "Deploy & Evaluate AI Agents",
+    "provider": "LangSmith Academy",
+    "level": "intermediate",
+    "cost": "free",
+    "estimatedHours": 5,
+    "url": "https://example.com/courses/deploy-evaluate-agents",
+    "domains": ["Agentic AI", "MLOps"],
+    "bestFor": ["Production builders"],
+    "pathWeek": 8
+  },
+  {
+    "title": "Machine Learning Specialization",
+    "provider": "Coursera (Andrew Ng)",
+    "level": "beginner",
+    "cost": "freemium",
+    "estimatedHours": 60,
+    "url": "https://example.com/courses/ml-specialization",
+    "domains": ["Machine Learning", "AI general"],
+    "bestFor": ["ML fundamentals"]
+  },
+  {
+    "title": "Deep Learning with PyTorch",
+    "provider": "fast.ai",
+    "level": "intermediate",
+    "cost": "free",
+    "estimatedHours": 40,
+    "url": "https://example.com/courses/fastai-pytorch",
+    "domains": ["Machine Learning", "Computer Vision", "NLP"],
+    "bestFor": ["Practical deep learning"]
+  },
+  {
+    "title": "Python for Data Science",
+    "provider": "Kaggle Learn",
+    "level": "beginner",
+    "cost": "free",
+    "estimatedHours": 8,
+    "url": "https://example.com/courses/kaggle-python-ds",
+    "domains": ["Data Science", "AI general"],
+    "bestFor": ["DS beginners"]
+  },
+  {
+    "title": "MLOps Fundamentals",
+    "provider": "Google Cloud Skills Boost",
+    "level": "intermediate",
+    "cost": "freemium",
+    "estimatedHours": 12,
+    "url": "https://example.com/courses/mlops-fundamentals",
+    "domains": ["MLOps", "Machine Learning"],
+    "bestFor": ["Production ML"]
+  }
+]

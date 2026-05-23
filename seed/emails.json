@@ -1,0 +1,27 @@
+[
+  {
+    "subject": "Interview Invitation - AI Agent Developer Intern at Helcim",
+    "sender": "recruiting@helcim.example.com",
+    "body": "Hi Alex,\n\nThanks for applying to the AI Agent Developer Intern role at Helcim. We'd like to invite you to a 45-minute virtual interview on Thursday, June 12, 2026 at 2:00 PM MDT.\n\nMeeting link: https://meet.example.com/helcim-interview-alex\n\nPlease come prepared to discuss a past Python project and we'll walk through one short LangChain coding exercise. Review LangChain tool calling and basic RAG concepts.\n\nBest,\nSarah - Helcim Talent Team"
+  },
+  {
+    "subject": "You're in! LangChain Hackathon Confirmation",
+    "sender": "noreply@devpost.example.com",
+    "body": "Hi,\n\nYou're confirmed for the LangChain Hackathon kicking off June 21, 2026. Theme: Build a useful AI agent in 48 hours. Prizes: $5k credits + mentorship.\n\nForm a team or join solo by June 18. Devpost submission link in your dashboard."
+  },
+  {
+    "subject": "Calgary AI Agents Meetup - This Thursday",
+    "sender": "events@lu.ma",
+    "body": "Don't forget: Calgary AI Agents Meetup at Platform Calgary on June 4 at 6 PM. Topic: Building Production LLM Agents. Free pizza and great networking with local AI engineers."
+  },
+  {
+    "subject": "Newsletter: 5 new courses launched this week",
+    "sender": "newsletter@deeplearning.example.com",
+    "body": "Hello, this week DeepLearning.AI launched 5 new short courses on RAG, prompt engineering, evaluation, agents, and embeddings. Browse the catalog now."
+  },
+  {
+    "subject": "Re: Application - Junior ML Engineer",
+    "sender": "talent@borealis.example.com",
+    "body": "Hi Alex,\n\nThanks for applying. We've reviewed your application and unfortunately we are moving forward with other candidates at this time. We encourage you to reapply in the future.\n\nBest,\nRBC Borealis AI Talent"
+  }
+]
