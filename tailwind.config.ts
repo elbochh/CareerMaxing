@@ -8,6 +8,14 @@ const config: Config = {
     "./lib/**/*.{ts,tsx}",
   ],
   theme: {
+    screens: {
+      xs: "480px",
+      sm: "640px",
+      md: "768px",
+      lg: "1024px",
+      xl: "1280px",
+      "2xl": "1536px",
+    },
     extend: {
       colors: {
         bg: {
@@ -37,8 +45,15 @@ const config: Config = {
         sans: ["ui-sans-serif", "system-ui", "-apple-system", "BlinkMacSystemFont", "Segoe UI", "Roboto", "Helvetica", "Arial", "sans-serif"],
       },
       boxShadow: {
+        xs: "0 1px 2px 0 rgba(15, 23, 42, 0.06)",
         card: "0 1px 0 0 rgba(255,255,255,0.04) inset, 0 8px 24px -12px rgba(0,0,0,0.5)",
         glow: "0 0 0 1px rgba(124,92,255,0.4), 0 0 40px -10px rgba(124,92,255,0.5)",
+      },
+      scale: {
+        102: "1.02",
+      },
+      backdropBlur: {
+        xs: "2px",
       },
       borderRadius: {
         xl: "0.9rem",
@@ -47,6 +62,7 @@ const config: Config = {
       animation: {
         "fade-in": "fadeIn 0.3s ease-out",
         "slide-up": "slideUp 0.4s ease-out",
+        "scale-up": "scaleUp 0.18s ease-out",
         shimmer: "shimmer 2s linear infinite",
       },
       keyframes: {
@@ -57,6 +73,10 @@ const config: Config = {
         slideUp: {
           "0%": { opacity: "0", transform: "translateY(8px)" },
           "100%": { opacity: "1", transform: "translateY(0)" },
+        },
+        scaleUp: {
+          "0%": { opacity: "0", transform: "scale(0.98)" },
+          "100%": { opacity: "1", transform: "scale(1)" },
         },
         shimmer: {
           "0%": { backgroundPosition: "-200% 0" },

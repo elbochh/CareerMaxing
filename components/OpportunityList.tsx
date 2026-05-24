@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, Sparkles, Filter, Layers } from "lucide-react";
 import { ScanButton } from "@/components/ScanButton";
 import { JobCard } from "@/components/JobCard";
@@ -21,7 +21,7 @@ export function OpportunityList({ kind, title, subtitle }: { kind: OpportunityKi
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<OpportunityStatus | "all">("all");
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     try {
       const r = await fetch(`/api/opportunities?kind=${kind}`);
@@ -32,11 +32,11 @@ export function OpportunityList({ kind, title, subtitle }: { kind: OpportunityKi
     } finally {
       setLoading(false);
     }
-  }
+  }, [kind]);
 
   useEffect(() => {
     load();
-  }, [kind]);
+  }, [load]);
 
   const filtered = useMemo(() => {
     if (filter === "all") return items;
@@ -61,7 +61,7 @@ export function OpportunityList({ kind, title, subtitle }: { kind: OpportunityKi
           </p>
         </div>
         <div className="shrink-0 group">
-          <ScanButton />
+          <ScanButton onComplete={load} />
         </div>
       </div>
 

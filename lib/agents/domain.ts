@@ -3,6 +3,7 @@ import { llmCall } from "@/lib/llm/client";
 import { DOMAIN_EXPANSION } from "@/lib/domains";
 import type { DomainExpansion, UserProfile } from "@/types";
 import { getDomainExpansion, saveDomainExpansion } from "@/lib/db/repos";
+import { profileFingerprint } from "@/lib/profile";
 
 const schema = z.object({
   expandedSubfields: z.array(z.string()).min(5),
@@ -13,8 +14,13 @@ const schema = z.object({
 });
 
 export async function runDomainAgent(profile: UserProfile): Promise<DomainExpansion> {
+  const fingerprint = profileFingerprint(profile);
   const cached = await getDomainExpansion(profile.userId);
-  if (cached && cached.primaryDomain === profile.primaryDomain) {
+  if (
+    cached &&
+    cached.primaryDomain === profile.primaryDomain &&
+    cached.profileFingerprint === fingerprint
+  ) {
     return cached;
   }
 
@@ -45,6 +51,7 @@ Return JSON with keys: expandedSubfields (15+ items), jobSearchQueries (6+ items
   const expansion: DomainExpansion = {
     userId: profile.userId,
     primaryDomain: profile.primaryDomain,
+    profileFingerprint: fingerprint,
     expandedSubfields: result.expandedSubfields,
     jobSearchQueries: result.jobSearchQueries,
     eventSearchQueries: result.eventSearchQueries,

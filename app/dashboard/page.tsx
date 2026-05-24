@@ -30,8 +30,14 @@ interface DashData {
 export default function DashboardPage() {
   const [data, setData] = useState<DashData | null>(null);
 
+  async function loadDashboard() {
+    const r = await fetch("/api/dashboard");
+    const nextData = await r.json();
+    setData(nextData);
+  }
+
   useEffect(() => {
-    fetch("/api/dashboard").then((r) => r.json()).then(setData);
+    loadDashboard();
   }, []);
 
   if (!data) {
@@ -57,12 +63,12 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">{greet}</h1>
+          <h1 className="text-3xl font-bold text-slate-800 tracking-tight">{greet}</h1>
           <p className="text-muted mt-1">
             Focus: <span className="text-accent-glow">{data.profile.primaryDomain}</span> · {data.profile.weeklyHours}h/week
           </p>
         </div>
-        <ScanButton size="lg" />
+        <ScanButton size="lg" onComplete={loadDashboard} />
       </div>
 
       {/* Stat grid */}
@@ -157,7 +163,7 @@ function StatCard({ label, value, icon, suffix, sub, href }: { label: string; va
         <span>{label}</span>
         {icon}
       </div>
-      <div className="mt-2 text-3xl font-bold text-white">
+      <div className="mt-2 text-3xl font-bold text-slate-800">
         {formatScore(value)}
         {suffix && <span className="text-base text-muted ml-1">{suffix}</span>}
       </div>
@@ -172,7 +178,7 @@ function RecRow({ icon, title, sub, score, band, href }: { icon: React.ReactNode
     <Link href={href} className="flex items-center gap-3 p-3 rounded-xl border border-border hover:border-border-strong transition-colors">
       <div className="w-8 h-8 rounded-lg bg-bg-elevated grid place-items-center">{icon}</div>
       <div className="flex-1 min-w-0">
-        <div className="text-sm text-white truncate">{title}</div>
+        <div className="text-sm text-slate-800 truncate">{title}</div>
         <div className="text-xs text-muted truncate">{sub}</div>
       </div>
       <ScoreBadge score={score} band={band} />

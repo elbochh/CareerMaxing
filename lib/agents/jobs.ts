@@ -1,13 +1,11 @@
 import jobsSeed from "@/seed/jobs.json";
 import { bandAction, bandFor, clampScore, skillOverlap } from "@/lib/scoring";
 import { jobKey } from "@/lib/dedupe";
-import {
-  findOpportunityByKey,
-  findOpportunityByUrl,
-  insertOpportunity,
-} from "@/lib/db/repos";
+import { upsertOpportunityForScan } from "@/lib/db/repos";
+import { profileFingerprint } from "@/lib/profile";
 import { fetchRemotiveJobs } from "@/lib/services/remotive";
 import type {
+  AgentScanContext,
   DomainExpansion,
   ExperienceLevel,
   JobPayload,
@@ -128,6 +126,7 @@ function buildWhy(
 export interface JobAgentResult {
   found: number;
   newInserted: number;
+  updatedExisting: number;
   inserted: OpportunityDoc[];
 }
 
@@ -146,6 +145,7 @@ function dedupeJobs(jobs: JobSeed[]): JobSeed[] {
 export async function runJobAgent(
   profile: UserProfile,
   domainExp: DomainExpansion,
+  scanContext?: AgentScanContext,
 ): Promise<JobAgentResult> {
   const useMock = process.env.USE_MOCK_DATA !== "false";
 
@@ -168,17 +168,20 @@ export async function runJobAgent(
     .slice(0, useMock ? 12 : 24);
 
   const now = new Date().toISOString();
+  const context = scanContext || {
+    profileFingerprint: profileFingerprint(profile),
+    scanId: `scan_${now}`,
+  };
   const inserted: OpportunityDoc[] = [];
+  let updatedExisting = 0;
   for (const c of candidates) {
     const { payload, score } = buildPayload(profile, domainExp, c.job);
     const dedupeKey = jobKey(payload.title, payload.company, payload.location);
-    const existing =
-      (await findOpportunityByKey(profile.userId, "job", dedupeKey)) ||
-      (await findOpportunityByUrl(profile.userId, payload.url));
-    if (existing) continue;
-    const doc = await insertOpportunity({
+    const result = await upsertOpportunityForScan({
       userId: profile.userId,
       kind: "job",
+      profileFingerprint: context.profileFingerprint,
+      scanId: context.scanId,
       dedupeKey,
       sourceUrl: payload.url,
       source: payload.source,
@@ -189,7 +192,11 @@ export async function runJobAgent(
       createdAt: now,
       updatedAt: now,
     });
-    inserted.push(doc);
+    if (result.created) {
+      inserted.push(result.opportunity);
+    } else {
+      updatedExisting += 1;
+    }
   }
-  return { found: candidates.length, newInserted: inserted.length, inserted };
+  return { found: candidates.length, newInserted: inserted.length, updatedExisting, inserted };
 }

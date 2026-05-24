@@ -166,15 +166,128 @@ export async function insertOpportunity(
   );
 }
 
+export async function upsertOpportunityForScan(
+  doc: Omit<OpportunityDoc, "_id">,
+): Promise<{ opportunity: OpportunityDoc; created: boolean }> {
+  const now = doc.updatedAt || new Date().toISOString();
+  return safeMongo(
+    async (db) => {
+      const collection = db!.collection<OpportunityDoc>("opportunities");
+      const existing = await collection.findOne({
+        userId: doc.userId,
+        $or: [
+          { kind: doc.kind, dedupeKey: doc.dedupeKey },
+          { sourceUrl: doc.sourceUrl },
+        ],
+      } as any);
+
+      if (existing) {
+        const update = {
+          kind: doc.kind,
+          profileFingerprint: doc.profileFingerprint,
+          scanId: doc.scanId,
+          dedupeKey: doc.dedupeKey,
+          sourceUrl: doc.sourceUrl,
+          source: doc.source,
+          payload: doc.payload,
+          score: doc.score,
+          scoreBand: doc.scoreBand,
+          updatedAt: now,
+        };
+        await collection.updateOne({ _id: existing._id } as any, { $set: update });
+        return {
+          opportunity: stripId({
+            ...existing,
+            ...update,
+            status: existing.status,
+            createdAt: existing.createdAt,
+          }),
+          created: false,
+        };
+      }
+
+      const withId: OpportunityDoc = { ...doc, updatedAt: now, _id: newId() };
+      await collection.insertOne(withId as any);
+      return { opportunity: withId, created: true };
+    },
+    () => {
+      const nextKey = `${doc.userId}|${doc.kind}|${doc.dedupeKey}`;
+      let existingKey: string | null = null;
+      let existing: OpportunityDoc | null = null;
+
+      for (const [key, value] of memory.opportunities.entries()) {
+        if (
+          value.userId === doc.userId &&
+          ((value.kind === doc.kind && value.dedupeKey === doc.dedupeKey) ||
+            value.sourceUrl === doc.sourceUrl)
+        ) {
+          existingKey = key;
+          existing = value;
+          break;
+        }
+      }
+
+      if (existing) {
+        const updated: OpportunityDoc = {
+          ...existing,
+          kind: doc.kind,
+          profileFingerprint: doc.profileFingerprint,
+          scanId: doc.scanId,
+          dedupeKey: doc.dedupeKey,
+          sourceUrl: doc.sourceUrl,
+          source: doc.source,
+          payload: doc.payload,
+          score: doc.score,
+          scoreBand: doc.scoreBand,
+          updatedAt: now,
+        };
+        if (existingKey && existingKey !== nextKey) memory.opportunities.delete(existingKey);
+        memory.opportunities.set(nextKey, updated);
+        return { opportunity: updated, created: false };
+      }
+
+      const withId: OpportunityDoc = { ...doc, updatedAt: now, _id: newId() };
+      memory.opportunities.set(nextKey, withId);
+      return { opportunity: withId, created: true };
+    },
+  );
+}
+
+function matchesOpportunityView(
+  opportunity: OpportunityDoc,
+  userId: string,
+  kind: OpportunityKind,
+  status?: OpportunityStatus,
+  profileFingerprint?: string,
+): boolean {
+  if (opportunity.userId !== userId || opportunity.kind !== kind) return false;
+  if (status && opportunity.status !== status) return false;
+  if (profileFingerprint && (!status || status === "new")) {
+    return opportunity.status !== "new" || opportunity.profileFingerprint === profileFingerprint;
+  }
+  return true;
+}
+
 export async function listOpportunities(
   userId: string,
   kind: OpportunityKind,
   status?: OpportunityStatus,
+  profileFingerprint?: string,
 ): Promise<OpportunityDoc[]> {
   return safeMongo(
     async (db) => {
       const filter: any = { userId, kind };
       if (status) filter.status = status;
+      if (profileFingerprint && (!status || status === "new")) {
+        if (status === "new") {
+          filter.profileFingerprint = profileFingerprint;
+        } else {
+          filter.$or = [
+            { status: { $ne: "new" } },
+            { profileFingerprint },
+          ];
+        }
+      }
       const docs = await db!
         .collection<OpportunityDoc>("opportunities")
         .find(filter)
@@ -184,9 +297,7 @@ export async function listOpportunities(
     },
     () =>
       Array.from(memory.opportunities.values())
-        .filter(
-          (o) => o.userId === userId && o.kind === kind && (!status || o.status === status),
-        )
+        .filter((o) => matchesOpportunityView(o, userId, kind, status, profileFingerprint))
         .sort((a, b) => b.score - a.score),
   );
 }
@@ -195,16 +306,27 @@ export async function countOpportunities(
   userId: string,
   kind: OpportunityKind,
   status?: OpportunityStatus,
+  profileFingerprint?: string,
 ): Promise<number> {
   return safeMongo(
     async (db) => {
       const filter: any = { userId, kind };
       if (status) filter.status = status;
+      if (profileFingerprint && (!status || status === "new")) {
+        if (status === "new") {
+          filter.profileFingerprint = profileFingerprint;
+        } else {
+          filter.$or = [
+            { status: { $ne: "new" } },
+            { profileFingerprint },
+          ];
+        }
+      }
       return db!.collection("opportunities").countDocuments(filter);
     },
     () =>
       Array.from(memory.opportunities.values()).filter(
-        (o) => o.userId === userId && o.kind === kind && (!status || o.status === status),
+        (o) => matchesOpportunityView(o, userId, kind, status, profileFingerprint),
       ).length,
   );
 }

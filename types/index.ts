@@ -58,12 +58,18 @@ export interface UserProfile {
 export interface DomainExpansion {
   userId: string;
   primaryDomain: PrimaryDomain;
+  profileFingerprint?: string;
   expandedSubfields: string[];
   jobSearchQueries: string[];
   eventSearchQueries: string[];
   learningSearchQueries: string[];
   jobTitles: string[];
   createdAt: string;
+}
+
+export interface AgentScanContext {
+  profileFingerprint: string;
+  scanId: string;
 }
 
 export type ScoreBand = "strong" | "good" | "maybe" | "ignore";
@@ -140,6 +146,8 @@ export interface OpportunityDoc<P = OpportunityPayload> {
   _id?: string;
   userId: string;
   kind: OpportunityKind;
+  profileFingerprint?: string;
+  scanId?: string;
   dedupeKey: string;
   sourceUrl: string;
   source: string;

@@ -208,7 +208,7 @@ export default function OnboardingPage() {
           <section className="card p-6 space-y-4">
             <h2 className="section-title">Location & opportunities</h2>
             <div>
-              <div className="label mb-2">Locations you'll consider</div>
+              <div className="label mb-2">Locations you will consider</div>
               <div className="flex flex-wrap gap-2">
                 {LOCATIONS.map((l) => (
                   <ChipToggle

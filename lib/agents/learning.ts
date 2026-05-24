@@ -1,14 +1,12 @@
 import coursesSeed from "@/seed/courses.json";
 import { bandAction, bandFor, clampScore } from "@/lib/scoring";
 import { courseKey } from "@/lib/dedupe";
-import {
-  findOpportunityByKey,
-  findOpportunityByUrl,
-  insertOpportunity,
-} from "@/lib/db/repos";
+import { upsertOpportunityForScan } from "@/lib/db/repos";
+import { profileFingerprint } from "@/lib/profile";
 import { llmCall, llmEnabled } from "@/lib/llm/client";
 import { z } from "zod";
 import type {
+  AgentScanContext,
   CoursePayload,
   DomainExpansion,
   ExperienceLevel,
@@ -144,12 +142,14 @@ function dedupeCourses(courses: CourseSeed[]): CourseSeed[] {
 export interface LearningAgentResult {
   found: number;
   newInserted: number;
+  updatedExisting: number;
   inserted: OpportunityDoc[];
 }
 
 export async function runLearningAgent(
   profile: UserProfile,
   domainExp: DomainExpansion,
+  scanContext?: AgentScanContext,
 ): Promise<LearningAgentResult> {
   const seed = coursesSeed as CourseSeed[];
   const live = await fetchLlmRecommendations(profile, domainExp);
@@ -174,7 +174,12 @@ export async function runLearningAgent(
     .slice(0, 10);
 
   const now = new Date().toISOString();
+  const context = scanContext || {
+    profileFingerprint: profileFingerprint(profile),
+    scanId: `scan_${now}`,
+  };
   const inserted: OpportunityDoc[] = [];
+  let updatedExisting = 0;
   for (const { c, score } of candidates) {
     const band = bandFor(score);
     const payload: CoursePayload = {
@@ -191,13 +196,11 @@ export async function runLearningAgent(
       pathWeek: c.pathWeek,
     };
     const dedupeKey = courseKey(payload.title, payload.provider);
-    const existing =
-      (await findOpportunityByKey(profile.userId, "course", dedupeKey)) ||
-      (await findOpportunityByUrl(profile.userId, payload.url));
-    if (existing) continue;
-    const doc = await insertOpportunity({
+    const result = await upsertOpportunityForScan({
       userId: profile.userId,
       kind: "course",
+      profileFingerprint: context.profileFingerprint,
+      scanId: context.scanId,
       dedupeKey,
       sourceUrl: payload.url,
       source: payload.provider,
@@ -208,7 +211,11 @@ export async function runLearningAgent(
       createdAt: now,
       updatedAt: now,
     });
-    inserted.push(doc);
+    if (result.created) {
+      inserted.push(result.opportunity);
+    } else {
+      updatedExisting += 1;
+    }
   }
-  return { found: candidates.length, newInserted: inserted.length, inserted };
+  return { found: candidates.length, newInserted: inserted.length, updatedExisting, inserted };
 }

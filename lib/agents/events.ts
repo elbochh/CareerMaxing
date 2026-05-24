@@ -1,13 +1,11 @@
 import eventsSeed from "@/seed/events.json";
 import { bandAction, bandFor, clampScore } from "@/lib/scoring";
 import { eventKey } from "@/lib/dedupe";
-import {
-  findOpportunityByKey,
-  findOpportunityByUrl,
-  insertOpportunity,
-} from "@/lib/db/repos";
+import { upsertOpportunityForScan } from "@/lib/db/repos";
+import { profileFingerprint } from "@/lib/profile";
 import { fetchDevpostHackathons } from "@/lib/services/devpost";
 import type {
+  AgentScanContext,
   DomainExpansion,
   EventPayload,
   EventSubtype,
@@ -143,6 +141,7 @@ function scoreEvent(profile: UserProfile, domainExp: DomainExpansion, ev: EventS
 export interface EventAgentResult {
   found: number;
   newInserted: number;
+  updatedExisting: number;
   inserted: OpportunityDoc[];
 }
 
@@ -161,6 +160,7 @@ function dedupeEvents(events: EventSeed[]): EventSeed[] {
 export async function runEventAgent(
   profile: UserProfile,
   domainExp: DomainExpansion,
+  scanContext?: AgentScanContext,
 ): Promise<EventAgentResult> {
   const useMock = process.env.USE_MOCK_DATA !== "false";
   let liveEvents: EventSeed[] = [];
@@ -183,7 +183,12 @@ export async function runEventAgent(
     .slice(0, useMock ? 12 : 24);
 
   const now = new Date().toISOString();
+  const context = scanContext || {
+    profileFingerprint: profileFingerprint(profile),
+    scanId: `scan_${now}`,
+  };
   const inserted: OpportunityDoc[] = [];
+  let updatedExisting = 0;
   for (const { ev, score } of candidates) {
     const band = bandFor(score);
     const payload: EventPayload = {
@@ -212,13 +217,11 @@ export async function runEventAgent(
       recommendedAction: bandAction(band, "event"),
     };
     const dedupeKey = eventKey(payload.title, payload.organizer, payload.date);
-    const existing =
-      (await findOpportunityByKey(profile.userId, "event", dedupeKey)) ||
-      (await findOpportunityByUrl(profile.userId, payload.url));
-    if (existing) continue;
-    const doc = await insertOpportunity({
+    const result = await upsertOpportunityForScan({
       userId: profile.userId,
       kind: "event",
+      profileFingerprint: context.profileFingerprint,
+      scanId: context.scanId,
       dedupeKey,
       sourceUrl: payload.url,
       source: payload.source,
@@ -229,7 +232,11 @@ export async function runEventAgent(
       createdAt: now,
       updatedAt: now,
     });
-    inserted.push(doc);
+    if (result.created) {
+      inserted.push(result.opportunity);
+    } else {
+      updatedExisting += 1;
+    }
   }
-  return { found: candidates.length, newInserted: inserted.length, inserted };
+  return { found: candidates.length, newInserted: inserted.length, updatedExisting, inserted };
 }

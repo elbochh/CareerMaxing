@@ -5,6 +5,7 @@ import { fetchGmailOpportunities } from "@/lib/services/gmail";
 import { runEmailAgent } from "@/lib/agents/email";
 import { findEmailByKey, insertEmail } from "@/lib/db/repos";
 import { emailKey } from "@/lib/dedupe";
+import { requireCurrentUser } from "@/lib/auth-helpers";
 import type { EmailDoc } from "@/types";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,8 @@ export async function GET() {
     return NextResponse.json({ error: "gmail_not_configured" }, { status: 400 });
   }
   const session = await getServerSession(authOptions);
-  const userId = session?.user?.id;
+  const user = await requireCurrentUser().catch(() => null);
+  const userId = user?.id;
   const accessToken = (session as any)?.accessToken as string | undefined;
   if (!userId || !accessToken) {
     return NextResponse.json(

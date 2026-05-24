@@ -8,6 +8,7 @@ import {
 } from "@/lib/db/repos";
 import { weekStartFor } from "@/lib/agents/checklist";
 import { requireUserId, unauthorizedResponse } from "@/lib/auth-helpers";
+import { profileFingerprint } from "@/lib/profile";
 
 export const dynamic = "force-dynamic";
 
@@ -19,19 +20,22 @@ export async function GET() {
     return unauthorizedResponse();
   }
   const profile = await getProfile(userId);
-  const domain = profile ? await getDomainExpansion(userId) : null;
+  const fingerprint = profile ? profileFingerprint(profile) : undefined;
+  const cachedDomain = profile ? await getDomainExpansion(userId) : null;
+  const domain =
+    cachedDomain && cachedDomain.profileFingerprint === fingerprint ? cachedDomain : null;
 
   const [jobsNew, eventsNew, coursesNew, jobsApproved, eventsApproved, coursesApproved] =
     await Promise.all([
-      countOpportunities(userId, "job", "new"),
-      countOpportunities(userId, "event", "new"),
-      countOpportunities(userId, "course", "new"),
+      countOpportunities(userId, "job", "new", fingerprint),
+      countOpportunities(userId, "event", "new", fingerprint),
+      countOpportunities(userId, "course", "new", fingerprint),
       countOpportunities(userId, "job", "approved"),
       countOpportunities(userId, "event", "approved"),
       countOpportunities(userId, "course", "approved"),
     ]);
-  const topJobs = (await listOpportunities(userId, "job", "new")).slice(0, 3);
-  const topEvents = (await listOpportunities(userId, "event", "new")).slice(0, 3);
+  const topJobs = (await listOpportunities(userId, "job", "new", fingerprint)).slice(0, 3);
+  const topEvents = (await listOpportunities(userId, "event", "new", fingerprint)).slice(0, 3);
   const tasks = await listAllTasks(userId);
   const thisWeek = weekStartFor();
   const weekTasks = tasks.filter((t) => t.weekStart === thisWeek);
