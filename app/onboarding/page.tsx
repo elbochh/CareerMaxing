@@ -12,7 +12,6 @@ import type {
   UserProfile,
 } from "@/types";
 import { cn } from "@/lib/utils";
-import { ScheduleEditor } from "@/components/ScheduleEditor";
 
 const DOMAINS: PrimaryDomain[] = [
   "AI general",
@@ -237,39 +236,6 @@ export default function OnboardingPage() {
                 ))}
               </div>
             </div>
-          </section>
-
-          {/* Time budget */}
-          <section className="card p-6 space-y-4">
-            <h2 className="section-title">Weekly hours</h2>
-            <div className="grid md:grid-cols-2 gap-4 items-center">
-              <div>
-                <div className="label mb-1">Weekly available hours: {form.weeklyHours}h</div>
-                <input
-                  type="range"
-                  min={2}
-                  max={30}
-                  value={form.weeklyHours}
-                  onChange={(e) => setForm({ ...form, weeklyHours: Number(e.target.value) })}
-                  className="w-full accent-accent"
-                />
-                <p className="text-[11px] text-muted mt-2">
-                  The Checklist Agent will never schedule more than {form.weeklyHours}h of tasks per week, and will avoid your class times below.
-                </p>
-              </div>
-            </div>
-          </section>
-
-          {/* School schedule */}
-          <section className="card p-6 space-y-4">
-            <h2 className="section-title">School schedule</h2>
-            <p className="text-xs text-muted">
-              Upload a screenshot of your weekly timetable (OpenAI Vision will read it) or add classes manually. These blocks are protected — the agent will not schedule tasks over them.
-            </p>
-            <ScheduleEditor
-              slots={form.schedule}
-              onChange={(slots) => setForm({ ...form, schedule: slots })}
-            />
           </section>
 
           {/* Skills */}
