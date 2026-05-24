@@ -2,10 +2,13 @@
   "name": "careermaxing",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": "22.22.3"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "next start -p ${PORT:-3000}",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },
@@ -25,6 +28,8 @@
     "zod": "^3.23.8"
   },
   "devDependencies": {
+    "@emnapi/core": "^1.10.0",
+    "@emnapi/runtime": "^1.10.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^22.7.5",
     "@types/react": "^18.3.11",
