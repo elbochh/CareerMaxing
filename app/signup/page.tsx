@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { User, Mail, Lock, Loader2, ArrowLeft, ShieldCheck } from "lucide-react";
 
 export default function SignUpPage() {
@@ -19,32 +20,52 @@ export default function SignUpPage() {
 
   async function handleRegister(e: React.FormEvent) {
     e.preventDefault();
-    
-    // 1. Text Presence Checks
+
     if (!name.trim() || !email.trim() || !password) {
-      setError("All account profile parameters must be satisfied before compilation.");
+      setError("Name, email and password are required.");
       return;
     }
-
-    // 2. Format Sanitization Matrix Validation
-    if (!isValidEmail(email.trim().toLowerCase())) {
-      setError("Target system email address does not follow recognized formatting conventions.");
+    const sanitizedEmail = email.trim().toLowerCase();
+    if (!isValidEmail(sanitizedEmail)) {
+      setError("The email address is not in a valid format.");
       return;
     }
-
-    // 3. Length Constraints Rules Checks
     if (password.length < 8) {
-      setError("System encryption requires access keys to span at least 8 elements long.");
+      setError("Password must be at least 8 characters.");
       return;
     }
 
     setError("");
     setLoading(true);
-
-    setTimeout(() => {
+    try {
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: name.trim(), email: sanitizedEmail, password }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data?.message || "Could not create your account. Try a different email.");
+        return;
+      }
+      const signin = await signIn("credentials", {
+        email: sanitizedEmail,
+        password,
+        redirect: false,
+        callbackUrl: "/onboarding",
+      });
+      if (!signin || signin.error) {
+        setError("Account created — please log in.");
+        router.push("/login");
+        return;
+      }
+      router.replace("/onboarding");
+      router.refresh();
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-      router.push("/onboarding");
-    }, 1500);
+    }
   }
 
   return (
@@ -101,15 +122,13 @@ export default function SignUpPage() {
             <label className="text-[10px] font-bold text-slate-400 uppercase tracking-widest block">Password</label>
             <div className="relative">
               <Lock className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-              <input 
+              <input
                 type="password"
                 value={password}
-                maxLength={32}
-                onPaste={(e) => {
-                  e.preventDefault(); // Secure interaction block mapping rule
-                  setError("Pasting secret hashes is restricted within signup nodes. Please type.");
-                }}
-                placeholder="••••••••"
+                maxLength={64}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 8 characters"
+                autoComplete="new-password"
                 className="w-full pl-10 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#5680E9] focus:bg-white text-xs font-semibold text-slate-700 transition-all"
               />
             </div>
