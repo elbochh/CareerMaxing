@@ -141,11 +141,20 @@ function stripHtml(html: string): string {
 
 function looksAi(j: RemotiveApiJob): boolean {
   const titleLc = (j.title || "").toLowerCase();
+  const blob = `${j.title || ""} ${j.category || ""} ${(j.tags || []).join(" ")}`.toLowerCase();
   for (const ex of EXCLUDE_TITLE) {
     if (titleLc.includes(ex)) return false;
   }
   // Strong signal: title contains an AI/ML engineering keyword.
   if (AI_TITLE_SIGNALS.some((kw) => titleLc.includes(kw))) return true;
+  if (
+    AI_TITLE_SIGNALS.some((kw) => blob.includes(kw)) &&
+    /\b(engineer|developer|scientist|researcher|architect|devops|full[\s\-]?stack|backend|frontend|software|product engineer|tech lead)\b/.test(
+      titleLc,
+    )
+  ) {
+    return true;
+  }
   // Soft signal: Remotive officially categorizes this job as AI and the title
   // is a credible engineering role (not in the exclude list above).
   const cat = (j.category || "").toLowerCase();

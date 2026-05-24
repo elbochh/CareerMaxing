@@ -44,7 +44,36 @@ function locationScore(profile: UserProfile, job: JobSeed): number {
   if (locs.includes("alberta") && (jobLoc.includes("alberta") || jobLoc.includes("calgary") || jobLoc.includes("edmonton"))) score = Math.max(score, 90);
   if (locs.includes("canada") && (jobLoc.includes("canada") || jobLoc.includes("toronto") || jobLoc.includes("alberta") || jobLoc.includes("calgary") || jobLoc.includes("ontario"))) score = Math.max(score, 75);
   if ((locs.includes("remote") || locs.includes("online")) && job.isRemote) score = Math.max(score, 95);
-  return Math.max(score, 45);
+  return score;
+}
+
+function matchesLocationPreference(profile: UserProfile, job: JobSeed): boolean {
+  const locs = profile.locations.map((l) => l.toLowerCase());
+  const jobLoc = job.location.toLowerCase();
+
+  if ((locs.includes("remote") || locs.includes("online")) && job.isRemote) return true;
+  if (locs.includes("calgary") && jobLoc.includes("calgary")) return true;
+  if (
+    locs.includes("alberta") &&
+    (jobLoc.includes("alberta") || jobLoc.includes("calgary") || jobLoc.includes("edmonton"))
+  ) {
+    return true;
+  }
+  if (
+    locs.includes("canada") &&
+    (jobLoc.includes("canada") ||
+      jobLoc.includes("toronto") ||
+      jobLoc.includes("vancouver") ||
+      jobLoc.includes("montreal") ||
+      jobLoc.includes("ottawa") ||
+      jobLoc.includes("alberta") ||
+      jobLoc.includes("calgary") ||
+      jobLoc.includes("ontario"))
+  ) {
+    return true;
+  }
+
+  return false;
 }
 
 function domainScore(domainExp: DomainExpansion, job: JobSeed): number {
@@ -170,6 +199,7 @@ export async function runJobAgent(
   }
 
   const candidates = dedupeJobs(liveJobs)
+    .filter((j) => matchesLocationPreference(profile, j))
     .map((j) => ({ job: j, ...scoreJob(profile, domainExp, j) }))
     .filter((c) => c.score >= 40)
     .sort((a, b) => b.score - a.score)
