@@ -1,6 +1,7 @@
 import eventsSeed from "@/seed/events.json";
 import { bandAction, bandFor, clampScore } from "@/lib/scoring";
 import { eventKey } from "@/lib/dedupe";
+import { defaultDurationMinutesForEvent } from "@/lib/events/config";
 import {
   findOpportunityByKey,
   findOpportunityByUrl,
@@ -165,6 +166,7 @@ export async function runEventAgent(
       eventType: ev.eventType,
       organizer: ev.organizer,
       date: ev.date,
+      durationMinutes: defaultDurationMinutesForEvent(ev.eventType),
       location: ev.location,
       isOnline: ev.isOnline,
       source: ev.source,

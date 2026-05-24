@@ -102,6 +102,7 @@ export interface EventPayload {
   eventType: EventSubtype;
   organizer: string;
   date: string; // ISO
+  durationMinutes?: number;
   location: string;
   isOnline: boolean;
   source: string;

@@ -1,7 +1,8 @@
 import { format } from "date-fns";
-import { CalendarRange, ExternalLink, MapPin, Globe, Award, Users, Lightbulb, Wand2 } from "lucide-react";
+import { CalendarPlus, CalendarRange, Download, ExternalLink, MapPin, Globe, Award, Users, Lightbulb, Wand2 } from "lucide-react";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { ActionButtons } from "@/components/ActionButtons";
+import { defaultDurationMinutesForEvent } from "@/lib/events/config";
 import type { EventPayload, OpportunityDoc } from "@/types";
 
 const URGENCY_BADGE: Record<EventPayload["urgency"], string> = {
@@ -10,8 +11,77 @@ const URGENCY_BADGE: Record<EventPayload["urgency"], string> = {
   low: "badge",
 };
 
+interface CalendarLinks {
+  googleUrl: string;
+  icsHref: string;
+  filename: string;
+}
+
+function toUtcCalendarStamp(date: Date): string {
+  return date.toISOString().replace(/[-:]/g, "").replace(/\.\d{3}Z$/, "Z");
+}
+
+function escapeIcsText(value: string): string {
+  return value
+    .replace(/\\/g, "\\\\")
+    .replace(/\n/g, "\\n")
+    .replace(/,/g, "\\,")
+    .replace(/;/g, "\\;");
+}
+
+function safeFileName(value: string): string {
+  return value.replace(/[^a-z0-9-_]+/gi, "_").replace(/^_+|_+$/g, "").toLowerCase() || "event";
+}
+
+function buildCalendarLinks(payload: EventPayload): CalendarLinks | null {
+  const start = new Date(payload.date);
+  if (Number.isNaN(start.getTime())) return null;
+
+  const durationMinutes = payload.durationMinutes ?? defaultDurationMinutesForEvent(payload.eventType);
+  const end = new Date(start.getTime() + durationMinutes * 60 * 1000);
+  const startStamp = toUtcCalendarStamp(start);
+  const endStamp = toUtcCalendarStamp(end);
+  const description = `${payload.detailedDescription}\n\nSource: ${payload.url}`;
+  const location = payload.isOnline ? "Online" : payload.location;
+
+  const googleParams = new URLSearchParams({
+    action: "TEMPLATE",
+    text: payload.title,
+    dates: `${startStamp}/${endStamp}`,
+    details: description,
+    location,
+  });
+
+  const uid = `${safeFileName(payload.title)}-${startStamp}@careermaxing.local`;
+  const icsContent = [
+    "BEGIN:VCALENDAR",
+    "VERSION:2.0",
+    "PRODID:-//CareerMaxing//Events//EN",
+    "CALSCALE:GREGORIAN",
+    "METHOD:PUBLISH",
+    "BEGIN:VEVENT",
+    `UID:${uid}`,
+    `DTSTAMP:${toUtcCalendarStamp(new Date())}`,
+    `DTSTART:${startStamp}`,
+    `DTEND:${endStamp}`,
+    `SUMMARY:${escapeIcsText(payload.title)}`,
+    `DESCRIPTION:${escapeIcsText(description)}`,
+    `LOCATION:${escapeIcsText(location)}`,
+    `URL:${payload.url}`,
+    "END:VEVENT",
+    "END:VCALENDAR",
+  ].join("\r\n");
+
+  return {
+    googleUrl: `https://calendar.google.com/calendar/render?${googleParams.toString()}`,
+    icsHref: `data:text/calendar;charset=utf-8,${encodeURIComponent(icsContent)}`,
+    filename: `${safeFileName(payload.title)}.ics`,
+  };
+}
+
 export function EventCard({ opp }: { opp: OpportunityDoc<EventPayload> }) {
   const p = opp.payload;
+  const calendarLinks = buildCalendarLinks(p);
   const date = (() => {
     try {
       return format(new Date(p.date), "EEE MMM d · h:mm a");
@@ -95,9 +165,30 @@ export function EventCard({ opp }: { opp: OpportunityDoc<EventPayload> }) {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <a href={p.url} target="_blank" rel="noreferrer" className="text-xs text-accent-glow inline-flex items-center gap-1 hover:underline">
-          View source <ExternalLink className="w-3 h-3" />
-        </a>
+        <div className="flex flex-wrap items-center gap-3">
+          <a href={p.url} target="_blank" rel="noreferrer" className="text-xs text-accent-glow inline-flex items-center gap-1 hover:underline">
+            View source <ExternalLink className="w-3 h-3" />
+          </a>
+          {calendarLinks && (
+            <>
+              <a
+                href={calendarLinks.googleUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="text-xs text-accent-glow inline-flex items-center gap-1 hover:underline"
+              >
+                Add to Google <CalendarPlus className="w-3 h-3" />
+              </a>
+              <a
+                href={calendarLinks.icsHref}
+                download={calendarLinks.filename}
+                className="text-xs text-accent-glow inline-flex items-center gap-1 hover:underline"
+              >
+                Download .ics <Download className="w-3 h-3" />
+              </a>
+            </>
+          )}
+        </div>
         <ActionButtons opportunityId={opp._id!} kind="event" status={opp.status} />
       </div>
     </article>
