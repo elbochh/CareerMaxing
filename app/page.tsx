@@ -7,7 +7,6 @@ import {
   Briefcase,
   CalendarRange,
   GraduationCap,
-  Inbox,
   ListChecks,
   Sparkles,
   Bot,
@@ -37,13 +36,6 @@ const FEATURES = [
     body: "An 8-week beginner path for Agentic AI plus curated courses for ML, NLP, CV, MLOps, and more.",
     status: "Module 3 of 8",
     tagColor: "bg-amber-50 text-amber-700 border-amber-200",
-  },
-  {
-    icon: Inbox,
-    title: "Gmail Scanner",
-    body: "Paste an email or connect Gmail. We detect interviews, offers, and events — never auto-create tasks.",
-    status: "Sync Enabled",
-    tagColor: "bg-emerald-50 text-emerald-700 border-emerald-200",
   },
   {
     icon: ListChecks,
@@ -199,7 +191,7 @@ export default function LandingPage() {
             </p>
           </div>
           <span className="text-xs text-[#5680E9] font-mono font-bold tracking-wider uppercase bg-[#5680E9]/5 px-2.5 py-1 rounded-lg border border-[#5680E9]/20 shadow-xs self-start sm:self-center">
-            5 Core Operations Running
+            4 Core Operations Running
           </span>
         </div>
 

@@ -10,7 +10,6 @@ export const config = {
     "/jobs/:path*",
     "/events/:path*",
     "/learning/:path*",
-    "/inbox/:path*",
     "/checklist/:path*",
     "/onboarding/:path*",
   ],

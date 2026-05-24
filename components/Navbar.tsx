@@ -10,7 +10,6 @@ import {
   Briefcase,
   CalendarRange,
   GraduationCap,
-  Inbox,
   ListChecks,
   User,
   LogOut,
@@ -24,7 +23,6 @@ const NAV = [
   { href: "/jobs", label: "Jobs", icon: Briefcase },
   { href: "/events", label: "Events", icon: CalendarRange },
   { href: "/learning", label: "Learning", icon: GraduationCap },
-  { href: "/inbox", label: "Inbox", icon: Inbox },
   { href: "/checklist", label: "Checklist", icon: ListChecks },
 ];
 
