@@ -132,7 +132,7 @@ export default function OnboardingPage() {
   return (
     <div className="space-y-8 max-w-4xl mx-auto">
       <div>
-        <h1 className="text-3xl font-bold text-white tracking-tight">Set up your AI career profile</h1>
+        <h1 className="text-3xl font-bold text-blue-500 tracking-tight">Set up your AI career profile</h1>
         <p className="text-muted mt-2">
           The Domain Agent uses this to expand into the right subfields and queries. Takes ~60 seconds.
         </p>

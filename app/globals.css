@@ -4,82 +4,89 @@
 
 @layer base {
   :root {
-    color-scheme: dark;
+    color-scheme: light;
   }
   html,
   body {
     height: 100%;
   }
   body {
-    @apply bg-bg text-muted-strong antialiased;
+    @apply bg-[#F8FAFC] text-slate-600 antialiased;
+    /* Ambient light gradients using your exact color palette values */
     background-image: radial-gradient(
-        1200px 600px at 80% -10%,
-        rgba(124, 92, 255, 0.12),
-        transparent 60%
+        2000px 900px at 80% -10%,
+        rgba(72, 206, 235, 0.08), /* Subtle #48cEEB glow at the top */
+        transparent 50%
       ),
-      radial-gradient(900px 500px at 0% 100%, rgba(124, 92, 255, 0.08), transparent 60%);
+      radial-gradient(1200px 600px at 10% 80%, rgba(136, 96, 208, 0.04), transparent 60%); /* Subtle #8860D0 floor glow */
     background-attachment: fixed;
   }
   * {
-    @apply border-border;
+    @apply border-[#C1C8E4]/50; /* Clean border crispness with #C1C8E4 */
   }
   ::selection {
-    background: rgba(124, 92, 255, 0.45);
-    color: white;
+    background: rgba(90, 185, 234, 0.25); /* #5AB9EA transparency */
+    color: #5680E9;
   }
 }
 
 @layer components {
   .card {
-    @apply rounded-2xl bg-bg-card border border-border shadow-card;
+    /* Fixed: Substituted non-existent shadow-slate-150 with an inline hex color utility shadow */
+    @apply rounded-2xl bg-white border border-[#C1C8E4]/40 shadow-sm shadow-[#C1C8E4]/20;
   }
   .card-hover {
-    @apply transition-all duration-200 hover:border-border-strong hover:shadow-glow;
+    @apply transition-all duration-300 hover:border-[#5AB9EA]/60 hover:shadow-md hover:shadow-[#5680E9]/5 hover:-translate-y-0.5;
   }
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 text-sm font-medium transition-colors;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold transition-all duration-200 active:scale-95;
   }
   .btn-primary {
-    @apply btn bg-accent text-white hover:bg-accent-glow disabled:opacity-50;
+    /* Using your rich Electric Lavender #8860D0 for primary actions */
+    @apply btn bg-[#8860D0] text-white hover:bg-[#734cb8] shadow-sm shadow-[#8860D0]/10;
   }
   .btn-ghost {
-    @apply btn bg-transparent border border-border text-muted-strong hover:bg-bg-elevated;
+    @apply btn bg-white border border-[#C1C8E4]/60 text-slate-700 hover:bg-slate-50 hover:text-slate-900;
   }
   .btn-danger {
-    @apply btn bg-transparent border border-border text-danger hover:bg-bg-elevated;
+    @apply btn bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-100;
   }
+  
+  /* Status Micro Badges built directly from your color options */
   .badge {
-    @apply inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[11px] font-medium border border-border bg-bg-elevated text-muted-strong;
+    @apply inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[11px] font-bold uppercase tracking-wider border border-[#C1C8E4]/60 bg-slate-50 text-slate-600;
   }
   .badge-accent {
-    @apply badge bg-accent/15 border-accent/30 text-accent-glow;
+    @apply badge bg-[#5AB9EA]/10 border-[#5AB9EA]/30 text-[#5680E9];
   }
   .badge-success {
-    @apply badge bg-success/15 border-success/30 text-success;
+    @apply badge bg-[#48cEEB]/10 border-[#48cEEB]/30 text-[#21a1be];
   }
   .badge-warn {
-    @apply badge bg-warning/15 border-warning/30 text-warning;
+    @apply badge bg-amber-50 border-amber-200 text-amber-700;
   }
   .badge-danger {
-    @apply badge bg-danger/15 border-danger/30 text-danger;
+    @apply badge bg-rose-50 border-rose-200 text-rose-700;
   }
+  
   .label {
-    @apply text-xs font-medium text-muted tracking-wide;
+    @apply text-xs font-bold text-slate-400 tracking-wider uppercase;
   }
   .input {
-    @apply w-full rounded-xl bg-bg-subtle border border-border px-3 py-2 text-sm text-muted-strong placeholder:text-muted focus:outline-none focus:border-accent/60 focus:ring-1 focus:ring-accent/30;
+    @apply w-full rounded-xl bg-slate-50 border border-[#C1C8E4]/60 px-3 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none focus:bg-white focus:border-[#5AB9EA] focus:ring-2 focus:ring-[#5AB9EA]/10 transition-all;
   }
   .chip {
-    @apply inline-flex items-center px-2.5 py-1 rounded-full text-xs border border-border bg-bg-elevated cursor-pointer hover:border-accent/40;
+    @apply inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium border border-[#C1C8E4]/60 bg-white text-slate-600 cursor-pointer transition-colors hover:bg-slate-50 hover:border-slate-300;
   }
   .chip-on {
-    @apply chip bg-accent/20 border-accent/40 text-accent-glow;
+    @apply chip bg-[#5AB9EA]/15 border-[#5AB9EA]/40 text-[#5680E9];
   }
   .section-title {
-    @apply text-lg font-semibold text-white tracking-tight;
+    @apply text-xl font-extrabold text-[#5680E9] tracking-tight;
   }
   .hero-grad {
-    background: linear-gradient(90deg, #c4b5fd, #818cf8 40%, #f0abfc);
+    /* Seamless text gradient moving beautifully through your color keys */
+    background: linear-gradient(90deg, #5680E9, #48cEEB 50%, #8860D0);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
@@ -89,9 +96,9 @@
 .scroll-shimmer {
   background-image: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0.02),
-    rgba(255, 255, 255, 0.08),
-    rgba(255, 255, 255, 0.02)
+    rgba(0, 0, 0, 0.01),
+    rgba(0, 0, 0, 0.04),
+    rgba(0, 0, 0, 0.01)
   );
   background-size: 200% 100%;
   animation: shimmer 2s linear infinite;
