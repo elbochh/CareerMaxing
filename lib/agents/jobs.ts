@@ -3,6 +3,7 @@ import { jobKey } from "@/lib/dedupe";
 import { upsertOpportunityForScan } from "@/lib/db/repos";
 import { profileFingerprint } from "@/lib/profile";
 import { fetchRemotiveJobs } from "@/lib/services/remotive";
+import { fetchArbeitnowJobs } from "@/lib/services/arbeitnow";
 import { validateResourceBatch } from "@/lib/source-validation";
 import type {
   AgentScanContext,
@@ -43,7 +44,7 @@ function locationScore(profile: UserProfile, job: JobSeed): number {
   if (locs.includes("alberta") && (jobLoc.includes("alberta") || jobLoc.includes("calgary") || jobLoc.includes("edmonton"))) score = Math.max(score, 90);
   if (locs.includes("canada") && (jobLoc.includes("canada") || jobLoc.includes("toronto") || jobLoc.includes("alberta") || jobLoc.includes("calgary") || jobLoc.includes("ontario"))) score = Math.max(score, 75);
   if ((locs.includes("remote") || locs.includes("online")) && job.isRemote) score = Math.max(score, 95);
-  return score;
+  return Math.max(score, 45);
 }
 
 function domainScore(domainExp: DomainExpansion, job: JobSeed): number {
@@ -154,9 +155,16 @@ export async function runJobAgent(
 ): Promise<JobAgentResult> {
   let liveJobs: JobSeed[] = [];
   try {
-    const queries = (domainExp.jobSearchQueries || []).slice(0, 3);
-    const remotive = await fetchRemotiveJobs(queries);
-    liveJobs = remotive as JobSeed[];
+    const queries = [
+      ...(domainExp.jobSearchQueries || []),
+      profile.primaryDomain,
+      ...profile.skills.slice(0, 4),
+    ];
+    const [remotive, arbeitnow] = await Promise.all([
+      fetchRemotiveJobs(queries),
+      fetchArbeitnowJobs(queries),
+    ]);
+    liveJobs = [...remotive, ...arbeitnow] as JobSeed[];
   } catch (err) {
     console.warn("[jobs] live fetch failed:", (err as Error).message);
   }
