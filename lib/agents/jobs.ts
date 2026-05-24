@@ -1,9 +1,9 @@
-import jobsSeed from "@/seed/jobs.json";
 import { bandAction, bandFor, clampScore, skillOverlap } from "@/lib/scoring";
 import { jobKey } from "@/lib/dedupe";
 import { upsertOpportunityForScan } from "@/lib/db/repos";
 import { profileFingerprint } from "@/lib/profile";
 import { fetchRemotiveJobs } from "@/lib/services/remotive";
+import { validateResourceBatch } from "@/lib/source-validation";
 import type {
   AgentScanContext,
   DomainExpansion,
@@ -48,7 +48,10 @@ function locationScore(profile: UserProfile, job: JobSeed): number {
 
 function domainScore(domainExp: DomainExpansion, job: JobSeed): number {
   const jobDomains = new Set(job.domains.map((d) => d.toLowerCase()));
-  if (jobDomains.has(domainExp.primaryDomain.toLowerCase())) return 100;
+  const primary = domainExp.primaryDomain.toLowerCase();
+  if (jobDomains.has(primary)) return 100;
+  if (primary === "nlp" && jobDomains.has("nlp / llms")) return 100;
+  if (primary !== "ai general" && jobDomains.has("ai general")) return 65;
   // Subfield/tag overlap
   const subSet = new Set(domainExp.expandedSubfields.map((s) => s.toLowerCase()));
   const tagHits = job.tags.filter((t) => subSet.has(t.toLowerCase())).length;
@@ -120,6 +123,7 @@ function buildWhy(
   if (job.isRemote) parts.push("Remote-friendly.");
   if (job.location.toLowerCase().includes("calgary")) parts.push("Based in Calgary.");
   parts.push(`Fit score: ${score}/100.`);
+  parts.push("Source verified.");
   return parts.join(" ");
 }
 
@@ -128,6 +132,7 @@ export interface JobAgentResult {
   newInserted: number;
   updatedExisting: number;
   inserted: OpportunityDoc[];
+  rejected: number;
 }
 
 function dedupeJobs(jobs: JobSeed[]): JobSeed[] {
@@ -147,25 +152,31 @@ export async function runJobAgent(
   domainExp: DomainExpansion,
   scanContext?: AgentScanContext,
 ): Promise<JobAgentResult> {
-  const useMock = process.env.USE_MOCK_DATA !== "false";
-
   let liveJobs: JobSeed[] = [];
-  if (!useMock) {
-    try {
-      const queries = (domainExp.jobSearchQueries || []).slice(0, 3);
-      const remotive = await fetchRemotiveJobs(queries);
-      liveJobs = remotive as JobSeed[];
-    } catch (err) {
-      console.warn("[jobs] live fetch failed, falling back to seed:", (err as Error).message);
-    }
+  try {
+    const queries = (domainExp.jobSearchQueries || []).slice(0, 3);
+    const remotive = await fetchRemotiveJobs(queries);
+    liveJobs = remotive as JobSeed[];
+  } catch (err) {
+    console.warn("[jobs] live fetch failed:", (err as Error).message);
   }
-  const allJobs = dedupeJobs([...liveJobs, ...(jobsSeed as JobSeed[])]);
 
-  const candidates = allJobs
+  const candidates = dedupeJobs(liveJobs)
     .map((j) => ({ job: j, ...scoreJob(profile, domainExp, j) }))
     .filter((c) => c.score >= 40)
     .sort((a, b) => b.score - a.score)
-    .slice(0, useMock ? 12 : 24);
+    .slice(0, 24);
+
+  const audit = await validateResourceBatch("jobs", candidates, (c) => ({
+    kind: "job",
+    title: c.job.title,
+    organization: c.job.company,
+    location: c.job.location,
+    isOnline: c.job.isRemote,
+    sourceName: c.job.source,
+    sourceUrl: c.job.url,
+    evidenceType: "trusted_api",
+  }));
 
   const now = new Date().toISOString();
   const context = scanContext || {
@@ -174,7 +185,7 @@ export async function runJobAgent(
   };
   const inserted: OpportunityDoc[] = [];
   let updatedExisting = 0;
-  for (const c of candidates) {
+  for (const { item: c, validation } of audit.accepted) {
     const { payload, score } = buildPayload(profile, domainExp, c.job);
     const dedupeKey = jobKey(payload.title, payload.company, payload.location);
     const result = await upsertOpportunityForScan({
@@ -183,8 +194,14 @@ export async function runJobAgent(
       profileFingerprint: context.profileFingerprint,
       scanId: context.scanId,
       dedupeKey,
-      sourceUrl: payload.url,
-      source: payload.source,
+      sourceUrl: validation.sourceUrl,
+      source: validation.sourceName,
+      isVerified: validation.isVerified,
+      verifiedAt: validation.verifiedAt,
+      sourceName: validation.sourceName,
+      confidenceScore: validation.confidenceScore,
+      rejectionReason: validation.rejectionReason,
+      verificationNotes: validation.verificationNotes,
       payload,
       score,
       scoreBand: bandFor(score),
@@ -198,5 +215,11 @@ export async function runJobAgent(
       updatedExisting += 1;
     }
   }
-  return { found: candidates.length, newInserted: inserted.length, updatedExisting, inserted };
+  return {
+    found: audit.accepted.length,
+    newInserted: inserted.length,
+    updatedExisting,
+    inserted,
+    rejected: audit.rejected.length,
+  };
 }

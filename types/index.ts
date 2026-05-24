@@ -75,6 +75,18 @@ export interface AgentScanContext {
 export type ScoreBand = "strong" | "good" | "maybe" | "ignore";
 export type OpportunityKind = "job" | "event" | "course";
 export type OpportunityStatus = "new" | "saved" | "approved" | "ignored";
+export type SourceEvidenceType = "trusted_api" | "curated" | "ai";
+export type RejectionReason =
+  | "missing_url"
+  | "broken_url"
+  | "missing_title"
+  | "missing_organization"
+  | "missing_location"
+  | "invalid_event_date"
+  | "expired_event"
+  | "duplicate"
+  | "source_mismatch"
+  | "ai_generated_without_evidence";
 
 export type EventSubtype =
   | "hackathon"
@@ -151,6 +163,12 @@ export interface OpportunityDoc<P = OpportunityPayload> {
   dedupeKey: string;
   sourceUrl: string;
   source: string;
+  isVerified: boolean;
+  verifiedAt?: string;
+  sourceName: string;
+  confidenceScore: number;
+  rejectionReason?: RejectionReason;
+  verificationNotes?: string;
   payload: P;
   score: number;
   scoreBand: ScoreBand;
@@ -237,9 +255,9 @@ export interface TaskDoc {
 }
 
 export interface ScanCounts {
-  jobs: { found: number; new: number };
-  events: { found: number; new: number };
-  courses: { found: number; new: number };
+  jobs: { found: number; new: number; updated?: number; rejected?: number };
+  events: { found: number; new: number; updated?: number; rejected?: number };
+  courses: { found: number; new: number; updated?: number; rejected?: number };
 }
 
 export const DEFAULT_USER_ID = "local-user";

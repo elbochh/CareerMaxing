@@ -189,6 +189,12 @@ export async function upsertOpportunityForScan(
           dedupeKey: doc.dedupeKey,
           sourceUrl: doc.sourceUrl,
           source: doc.source,
+          isVerified: doc.isVerified,
+          verifiedAt: doc.verifiedAt,
+          sourceName: doc.sourceName,
+          confidenceScore: doc.confidenceScore,
+          rejectionReason: doc.rejectionReason,
+          verificationNotes: doc.verificationNotes,
           payload: doc.payload,
           score: doc.score,
           scoreBand: doc.scoreBand,
@@ -236,6 +242,12 @@ export async function upsertOpportunityForScan(
           dedupeKey: doc.dedupeKey,
           sourceUrl: doc.sourceUrl,
           source: doc.source,
+          isVerified: doc.isVerified,
+          verifiedAt: doc.verifiedAt,
+          sourceName: doc.sourceName,
+          confidenceScore: doc.confidenceScore,
+          rejectionReason: doc.rejectionReason,
+          verificationNotes: doc.verificationNotes,
           payload: doc.payload,
           score: doc.score,
           scoreBand: doc.scoreBand,
@@ -261,6 +273,7 @@ function matchesOpportunityView(
   profileFingerprint?: string,
 ): boolean {
   if (opportunity.userId !== userId || opportunity.kind !== kind) return false;
+  if (opportunity.isVerified !== true) return false;
   if (status && opportunity.status !== status) return false;
   if (profileFingerprint && (!status || status === "new")) {
     return opportunity.status !== "new" || opportunity.profileFingerprint === profileFingerprint;
@@ -276,7 +289,7 @@ export async function listOpportunities(
 ): Promise<OpportunityDoc[]> {
   return safeMongo(
     async (db) => {
-      const filter: any = { userId, kind };
+      const filter: any = { userId, kind, isVerified: true };
       if (status) filter.status = status;
       if (profileFingerprint && (!status || status === "new")) {
         if (status === "new") {
@@ -310,7 +323,7 @@ export async function countOpportunities(
 ): Promise<number> {
   return safeMongo(
     async (db) => {
-      const filter: any = { userId, kind };
+      const filter: any = { userId, kind, isVerified: true };
       if (status) filter.status = status;
       if (profileFingerprint && (!status || status === "new")) {
         if (status === "new") {

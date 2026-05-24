@@ -9,6 +9,7 @@ import {
 import { weekStartFor } from "@/lib/agents/checklist";
 import { requireUserId, unauthorizedResponse } from "@/lib/auth-helpers";
 import { profileFingerprint } from "@/lib/profile";
+import { filterTasksWithVerifiedOpportunitySources } from "@/lib/verified-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -36,7 +37,7 @@ export async function GET() {
     ]);
   const topJobs = (await listOpportunities(userId, "job", "new", fingerprint)).slice(0, 3);
   const topEvents = (await listOpportunities(userId, "event", "new", fingerprint)).slice(0, 3);
-  const tasks = await listAllTasks(userId);
+  const tasks = await filterTasksWithVerifiedOpportunitySources(await listAllTasks(userId));
   const thisWeek = weekStartFor();
   const weekTasks = tasks.filter((t) => t.weekStart === thisWeek);
   const xpEarned = weekTasks.filter((t) => t.status === "done").reduce((n, t) => n + t.xp, 0);

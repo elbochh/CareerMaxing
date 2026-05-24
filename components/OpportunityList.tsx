@@ -115,11 +115,11 @@ export function OpportunityList({ kind, title, subtitle }: { kind: OpportunityKi
             <Sparkles className="w-6 h-6 animate-pulse" />
           </div>
           <h3 className="text-base font-extrabold text-[#5680E9] tracking-tight">
-            {items.length === 0 ? "Pipeline is currently vacant" : "No exact status match found"}
+            {items.length === 0 ? "No verified opportunities found yet" : "No exact status match found"}
           </h3>
           <p className="text-slate-400 text-xs sm:text-sm mt-1 max-w-xs font-medium leading-relaxed">
             {items.length === 0
-              ? "Initiate an automated Career Scan in the header layout block to pull active records."
+              ? "Run scan again or broaden filters. Unverified or broken-source items are hidden from this list."
               : "No current nodes correspond to this specific classification state criteria filter."}
           </p>
         </div>

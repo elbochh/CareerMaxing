@@ -167,7 +167,7 @@ function map(j: RemotiveApiJob): RemotiveJobSeed {
     location: j.candidate_required_location || "Remote",
     isRemote: true,
     level,
-    source: "remotive",
+    source: "Remotive",
     url: j.url,
     description,
     tags,
@@ -208,7 +208,6 @@ export async function fetchRemotiveJobs(
       const res = await fetch(url, {
         headers: { Accept: "application/json" },
         cache: "no-store",
-        next: { revalidate: 0 },
       });
       if (!res.ok) continue;
       const data = (await res.json()) as RemotiveApiResponse;

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getProfile, listTasksForWeek } from "@/lib/db/repos";
 import { weekStartFor } from "@/lib/agents/checklist";
 import { requireUserId, unauthorizedResponse } from "@/lib/auth-helpers";
+import { filterTasksWithVerifiedOpportunitySources } from "@/lib/verified-tasks";
 
 export const dynamic = "force-dynamic";
 
@@ -14,10 +15,11 @@ export async function GET(req: NextRequest) {
   }
   const { searchParams } = new URL(req.url);
   const week = searchParams.get("week") || weekStartFor();
-  const [tasks, profile] = await Promise.all([
+  const [rawTasks, profile] = await Promise.all([
     listTasksForWeek(userId, week),
     getProfile(userId),
   ]);
+  const tasks = await filterTasksWithVerifiedOpportunitySources(rawTasks);
   const totalMinutes = tasks.reduce((n, t) => n + t.estimatedMinutes, 0);
   const totalXp = tasks.reduce((n, t) => n + t.xp, 0);
   const earnedXp = tasks.filter((t) => t.status === "done").reduce((n, t) => n + t.xp, 0);

@@ -2,7 +2,7 @@
 
 **Your daily AI career agent for AI students.** A multi-agent web app that discovers AI jobs, events, hackathons, and learning paths tailored to your goals, school schedule, and weekly hours — then turns approved opportunities into a realistic Monday-to-Sunday checklist.
 
-Built in 48 hours for a hackathon. Mock-first so the demo never breaks. Cost-aware: defaults to **zero LLM calls** and uses `gpt-4o-mini` with batched, schema-validated calls when enabled.
+Built in 48 hours for a hackathon. Source-verified so screenshots stay credible. Cost-aware: defaults to **zero LLM calls** and uses `gpt-4o-mini` with batched, schema-validated calls when enabled.
 
 ---
 
@@ -32,11 +32,9 @@ User → /onboarding → profiles
                           → Dedupe + Score → opportunities (Mongo)
                           → Jobs / Events / Learning pages
                           → Approve → Checklist Agent → tasks (Mongo)
-     → /inbox (paste or Gmail) → Email Agent → emails (Mongo)
-                                → Follow → Checklist Agent → tasks
 ```
 
-All agents share a single `llmCall(...)` helper with strict zod schemas and a deterministic mock fallback. When `LLM_ENABLED=false` (default), every agent uses the mock branch — the demo runs offline.
+All visible jobs, events, and learning resources are validated before display. See `docs/data-pipeline.md` for source rules, rejection logging, and checklist safeguards.
 
 ### File map
 
@@ -46,7 +44,6 @@ app/                        Next.js App Router pages + API routes
   onboarding/page.tsx       Multi-step profile form
   dashboard/page.tsx        Score, top recs, weekly progress, domain expansion
   jobs/ events/ learning/   Opportunity lists
-  inbox/page.tsx            Email paste + Gmail scan
   checklist/page.tsx        Mon–Sun grid with XP + time totals
   api/
     profile, scan, opportunities, opportunities/[id]/action,
@@ -58,10 +55,13 @@ lib/
   agents/                   domain, jobs, events, learning, email, checklist
   db/                       mongo client + typed repos
   llm/                      OpenAI + mock + zod-validated JSON mode
+  services/remotive.ts      Live job source
+  services/devpost.ts       Live hackathon/event source
   services/gmail.ts         Gmail REST (read-only)
+  source-validation.ts      Reachability + metadata validation for resources
   domains.ts                Static domain expansion (matches the spec)
   dedupe.ts, scoring.ts     Normalized keys + score bands
-seed/                       jobs/events/courses/emails JSON fixtures
+seed/                       Curated courses; job/event seeds are intentionally empty
 types/index.ts              Shared types
 ```
 
@@ -71,7 +71,7 @@ types/index.ts              Shared types
 |--------------------|--------------------------------------------------------------------|----------------------------|
 | `profiles`         | Single user profile (`userId: "local-user"`).                      | `{ userId }`               |
 | `domainExpansions` | Per-profile cached Domain Agent output.                            | `{ userId }`               |
-| `opportunities`    | Jobs/events/courses with score band, status, source URL.           | `{ userId, kind, dedupeKey }` |
+| `opportunities`    | Verified jobs/events/courses with score band, status, source URL, verification metadata. | `{ userId, kind, dedupeKey }` |
 | `emails`           | Pasted or Gmail emails + Email Agent analysis.                     | `{ userId, dedupeKey }`    |
 | `tasks`            | Weekly tasks bound to a `weekStart` + day.                         | `{ userId, weekStart }`    |
 
@@ -115,8 +115,8 @@ npm run build && npm start
 | `OPENAI_API_KEY` | no | If absent, agents stay in mock mode (free). |
 | `LLM_MODEL` | no | Defaults to `gpt-4o-mini`. |
 | `LLM_ENABLED` | no | `false` (default) keeps cost at $0. Set to `true` to use OpenAI. |
-| `USE_MOCK_DATA` | no | `true` (default) forces mock mode regardless of `LLM_ENABLED`. |
-| `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `THEMUSE_API_KEY`, `REMOTIVE_API_BASE` | no | Reserved for future API wrappers. Seed data is used otherwise. |
+| `USE_MOCK_DATA` | no | Legacy LLM mock switch. Resource cards still require verified URLs. |
+| `ADZUNA_APP_ID`, `ADZUNA_APP_KEY`, `THEMUSE_API_KEY`, `REMOTIVE_API_BASE` | no | Reserved for future API wrappers. Remotive is used for jobs today. |
 
 The repo ships with `.env.local` ignored by git and a sanitized `.env.example`.
 
@@ -126,15 +126,14 @@ The repo ships with `.env.local` ignored by git and a sanitized `.env.example`.
 
 1. **`/onboarding`** — fill: Alex, U of Calgary, beginner, **Agentic AI**, locations Calgary + Remote, interested in jobs / internships / hackathons / courses, 10 h/week, Mon + Wed busy 9–15, skills Python + SQL, goals "get internship" + "build portfolio".
 2. **`/dashboard`** — click **Run Today's Career Scan**. Counts populate: jobs / events / courses found, all new.
-3. **`/jobs`** — top card is "AI Agent Developer Intern @ Helcim" with high fit. Click **Apply this week** → toast "Added N tasks to this week".
-4. **`/events`** — top picks include "Calgary AI Agents Meetup" + "LangChain Hackathon" + "Alberta AI Hackathon 2026". Click **Follow event** on one. Hackathon prep tasks appear in checklist.
+3. **`/jobs`** — cards come from verified Remotive postings. Click **Apply this week** → toast "Added N tasks to this week".
+4. **`/events`** — cards come from verified Devpost hackathons/events. Click **Follow event** on one. Hackathon prep tasks appear in checklist.
 5. **`/learning`** — beginner Agentic AI path: LLM fundamentals → Prompt engineering → Tool calling → RAG → LangChain → LangGraph → Multi-agent → Deploy. Click **Start this week** on Week 1.
-6. **`/inbox`** — click the **Demo: Interview Invitation…** chip → Analyze → card shows extracted company (Helcim), role, **date 2026-06-12**, **time 2:00 PM MDT**, meeting link, and prep requirements. Click **Follow this** → interview-prep tasks land in the checklist before the interview date.
-7. **`/checklist`** — Mon–Sun grid with totals, XP bar, click checkboxes to toggle done. Dashboard XP bar updates.
-8. Run another scan — counts show **0 new** (dedupe works).
+6. **`/checklist`** — Mon–Sun grid with totals, XP bar, click checkboxes to toggle done. Dashboard XP bar updates.
+7. Run another scan — counts show existing verified matches refreshed (dedupe works).
 
 ### Optional: Gmail scan
-Set `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and a `NEXTAUTH_SECRET`, restart, open `/api/auth/signin/google` to authorize, then `/inbox` → **Scan my Gmail**. Top 10 emails matching `interview OR internship OR scholarship OR hackathon OR "career fair" OR workshop OR networking OR mentorship OR volunteer OR "student membership" OR "job opportunity"` from the last 30 days are sent through the Email Agent.
+The backend Gmail routes remain available for future use, but the inbox page is removed from the current hackathon screenshot flow.
 
 ---
 
@@ -147,7 +146,7 @@ Set `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and a `NEXTAUTH_SECRET`, restart, 
 - Mock branch reads from `lib/domains.ts`, which mirrors the spec verbatim for Agentic AI / AI general / Machine Learning / Data Science / Generative AI / NLP / Computer Vision / AI Automation / MLOps / AI Product.
 
 ### Job / Event / Learning Agents
-- Filter seed data by domain + location.
+- Fetch live jobs/events or curated learning resources, then validate every source before display.
 - Score 0–100 using weighted blends:
   - **Jobs**: 35% domain × 25% skill overlap × 20% location × 20% level match.
   - **Events**: 40% domain × 30% location × 30% opportunity-type bonus.
@@ -173,9 +172,9 @@ Set `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET` and a `NEXTAUTH_SECRET`, restart, 
 
 ## Cost strategy
 
-Default install costs **$0** to demo:
-- `USE_MOCK_DATA=true` (default) → no external API calls.
-- All UI works fully on seed data + mocks.
+Default install costs **$0** for LLM usage:
+- `LLM_ENABLED=false` and `USE_MOCK_DATA=true` skip LLM calls.
+- Resource scans still call free public/curated sources and hide anything that is not verified.
 
 When `LLM_ENABLED=true` and a key is set:
 - Model: `gpt-4o-mini` (~$0.15/1M input, ~$0.60/1M output).

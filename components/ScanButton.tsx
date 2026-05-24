@@ -28,9 +28,12 @@ export function ScanButton({
       if (!r.ok) throw new Error(data.error || "Scan failed");
       const c = data.counts;
       const totalUpdated = c.jobs.updated + c.events.updated + c.courses.updated;
+      const totalRejected = c.jobs.rejected + c.events.rejected + c.courses.rejected;
       const starter = data.profile?.created ? "Starter profile created. " : "";
+      const rejectedText =
+        totalRejected > 0 ? ` Rejected ${totalRejected} unverifiable item${totalRejected === 1 ? "" : "s"}.` : "";
       setResult(
-        `${starter}Found ${c.jobs.found} jobs (${c.jobs.new} new), ${c.events.found} events (${c.events.new} new), ${c.courses.found} courses (${c.courses.new} new). Refreshed ${totalUpdated} existing matches for your current profile.`,
+        `${starter}Found ${c.jobs.found} verified jobs (${c.jobs.new} new), ${c.events.found} verified events (${c.events.new} new), ${c.courses.found} verified courses (${c.courses.new} new). Refreshed ${totalUpdated} existing matches for your current profile.${rejectedText}`,
       );
       await onComplete?.();
       router.refresh();

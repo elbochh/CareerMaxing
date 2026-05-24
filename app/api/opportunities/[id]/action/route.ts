@@ -38,6 +38,15 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     return NextResponse.json({ ok: true, status: "saved" });
   }
   // follow
+  if (opp.isVerified !== true) {
+    return NextResponse.json(
+      {
+        error:
+          "This item is not source-verified, so it cannot be added to the checklist.",
+      },
+      { status: 400 },
+    );
+  }
   const { profile } = await getOrCreateProfileForUser(user);
   const weekStart = weekStartFor();
   const existing = await listTasksForWeek(userId, weekStart);

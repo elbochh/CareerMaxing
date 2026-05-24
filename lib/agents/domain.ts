@@ -30,7 +30,7 @@ export async function runDomainAgent(profile: UserProfile): Promise<DomainExpans
   const result = await llmCall({
     schema,
     system:
-      "You are a career-discovery agent that expands an AI student's chosen primary domain into a rich set of related subfields, job titles, and search queries for jobs, events, and learning resources. Return strict JSON.",
+      "You are a career-discovery agent that expands an AI student's chosen primary domain into a rich set of related subfields, job titles, and search queries for jobs, events, and learning resources. You do not create or name specific opportunities; downstream agents may only display source-verified resources. Return strict JSON.",
     user: `User primary domain: ${profile.primaryDomain}
 Experience level: ${profile.level}
 Locations: ${locTokens}

@@ -4,6 +4,7 @@ import { courseKey } from "@/lib/dedupe";
 import { upsertOpportunityForScan } from "@/lib/db/repos";
 import { profileFingerprint } from "@/lib/profile";
 import { llmCall, llmEnabled } from "@/lib/llm/client";
+import { validateResourceBatch } from "@/lib/source-validation";
 import { z } from "zod";
 import type {
   AgentScanContext,
@@ -11,6 +12,7 @@ import type {
   DomainExpansion,
   ExperienceLevel,
   OpportunityDoc,
+  SourceEvidenceType,
   UserProfile,
 } from "@/types";
 
@@ -25,6 +27,8 @@ interface CourseSeed {
   bestFor: string[];
   pathWeek?: number;
 }
+
+type CourseCandidate = CourseSeed & { evidenceType: SourceEvidenceType };
 
 const LEVEL_RANK: Record<ExperienceLevel, number> = {
   beginner: 0,
@@ -74,7 +78,11 @@ async function fetchLlmRecommendations(
   domainExp: DomainExpansion,
 ): Promise<CourseSeed[]> {
   if (!llmEnabled()) return [];
-  const system = `You are a senior AI career mentor. Recommend 6 high-quality, mostly free or low-cost AI learning resources that map directly to the user's profile and domain expansion. Prefer well-known providers (Coursera, DeepLearning.AI, Fast.ai, Hugging Face, Anthropic, OpenAI Cookbook, Stanford, MIT OCW, freeCodeCamp, YouTube reputable creators). Each URL must be the real canonical course/course-list page. Output strict JSON.`;
+  const system = `You are a senior AI career mentor. Recommend up to 6 high-quality, mostly free or low-cost AI learning resources that map directly to the user's profile and domain expansion.
+
+Strict source rule: Only return opportunities that are directly supported by a real source URL. If no source exists, return nothing. Do not invent course names, providers, dates, or URLs.
+
+Prefer well-known providers (Coursera, DeepLearning.AI, Fast.ai, Hugging Face, Anthropic, OpenAI Cookbook, Stanford, MIT OCW, freeCodeCamp, Google Cloud Skills Boost, Microsoft Learn, AWS Skill Builder). Each URL must be the real canonical course/course-list page. Output strict JSON.`;
   const user = JSON.stringify({
     profile: {
       level: profile.level,
@@ -127,9 +135,9 @@ async function fetchLlmRecommendations(
   }
 }
 
-function dedupeCourses(courses: CourseSeed[]): CourseSeed[] {
+function dedupeCourses<T extends CourseSeed>(courses: T[]): T[] {
   const seen = new Set<string>();
-  const out: CourseSeed[] = [];
+  const out: T[] = [];
   for (const c of courses) {
     const key = `${c.title.toLowerCase().trim()}|${c.provider.toLowerCase().trim()}`;
     if (seen.has(key)) continue;
@@ -144,6 +152,7 @@ export interface LearningAgentResult {
   newInserted: number;
   updatedExisting: number;
   inserted: OpportunityDoc[];
+  rejected: number;
 }
 
 export async function runLearningAgent(
@@ -151,8 +160,14 @@ export async function runLearningAgent(
   domainExp: DomainExpansion,
   scanContext?: AgentScanContext,
 ): Promise<LearningAgentResult> {
-  const seed = coursesSeed as CourseSeed[];
-  const live = await fetchLlmRecommendations(profile, domainExp);
+  const seed = (coursesSeed as CourseSeed[]).map<CourseCandidate>((c) => ({
+    ...c,
+    evidenceType: "curated",
+  }));
+  const live = (await fetchLlmRecommendations(profile, domainExp)).map<CourseCandidate>((c) => ({
+    ...c,
+    evidenceType: "ai",
+  }));
   const all = dedupeCourses([...live, ...seed]);
 
   const scored = all.map((c) => {
@@ -173,6 +188,15 @@ export async function runLearningAgent(
     })
     .slice(0, 10);
 
+  const audit = await validateResourceBatch("learning", candidates, (s) => ({
+    kind: "course",
+    title: s.c.title,
+    organization: s.c.provider,
+    sourceName: s.c.provider,
+    sourceUrl: s.c.url,
+    evidenceType: s.c.evidenceType,
+  }));
+
   const now = new Date().toISOString();
   const context = scanContext || {
     profileFingerprint: profileFingerprint(profile),
@@ -180,7 +204,7 @@ export async function runLearningAgent(
   };
   const inserted: OpportunityDoc[] = [];
   let updatedExisting = 0;
-  for (const { c, score } of candidates) {
+  for (const { item: { c, score }, validation } of audit.accepted) {
     const band = bandFor(score);
     const payload: CoursePayload = {
       title: c.title,
@@ -188,9 +212,9 @@ export async function runLearningAgent(
       level: c.level,
       cost: c.cost,
       estimatedHours: c.estimatedHours,
-      url: c.url,
+      url: validation.sourceUrl,
       bestFor: c.bestFor,
-      whyUseful: `Builds ${profile.primaryDomain} skills at the ${c.level} level. Fits your ${profile.weeklyHours}h/week budget.`,
+      whyUseful: `Builds ${profile.primaryDomain} skills at the ${c.level} level. Fits your ${profile.weeklyHours}h/week budget. Source verified.`,
       suggestedLearningTasks: suggestedTasks(c),
       recommendedAction: bandAction(band, "course"),
       pathWeek: c.pathWeek,
@@ -202,8 +226,14 @@ export async function runLearningAgent(
       profileFingerprint: context.profileFingerprint,
       scanId: context.scanId,
       dedupeKey,
-      sourceUrl: payload.url,
-      source: payload.provider,
+      sourceUrl: validation.sourceUrl,
+      source: validation.sourceName,
+      isVerified: validation.isVerified,
+      verifiedAt: validation.verifiedAt,
+      sourceName: validation.sourceName,
+      confidenceScore: validation.confidenceScore,
+      rejectionReason: validation.rejectionReason,
+      verificationNotes: validation.verificationNotes,
       payload,
       score,
       scoreBand: band,
@@ -217,5 +247,11 @@ export async function runLearningAgent(
       updatedExisting += 1;
     }
   }
-  return { found: candidates.length, newInserted: inserted.length, updatedExisting, inserted };
+  return {
+    found: audit.accepted.length,
+    newInserted: inserted.length,
+    updatedExisting,
+    inserted,
+    rejected: audit.rejected.length,
+  };
 }

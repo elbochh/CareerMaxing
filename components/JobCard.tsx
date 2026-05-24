@@ -1,6 +1,7 @@
 import { Briefcase, ExternalLink, MapPin } from "lucide-react";
 import { ActionButtons } from "@/components/ActionButtons";
 import { ScoreBadge } from "@/components/ScoreBadge";
+import { VerifiedSource } from "@/components/VerifiedSource";
 import type { JobPayload, OpportunityDoc } from "@/types";
 
 export function JobCard({ opp }: { opp: OpportunityDoc<JobPayload> }) {
@@ -8,6 +9,7 @@ export function JobCard({ opp }: { opp: OpportunityDoc<JobPayload> }) {
   const title = p.title?.trim() || "Untitled job opportunity";
   const company = p.company?.trim() || "Unknown company";
   const location = p.location?.trim() || "Location not listed";
+  const sourceUrl = opp.sourceUrl || p.url;
   return (
     <article className="card card-hover p-5 space-y-3 animate-slide-up">
       <div className="flex items-start justify-between gap-3">
@@ -17,8 +19,9 @@ export function JobCard({ opp }: { opp: OpportunityDoc<JobPayload> }) {
             <span className="inline-flex items-center gap-1"><Briefcase className="w-3 h-3" />{company}</span>
             <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{location}</span>
             {p.isRemote && <span className="badge-accent">Remote</span>}
-            <span className="badge">{p.source}</span>
+            <span className="badge">{opp.sourceName || p.source}</span>
             <span className="badge">{p.difficulty}</span>
+            <VerifiedSource opp={opp} />
           </div>
         </div>
         <ScoreBadge score={opp.score} band={opp.scoreBand} kindLabel="Career Fit" />
@@ -44,7 +47,7 @@ export function JobCard({ opp }: { opp: OpportunityDoc<JobPayload> }) {
       <p className="text-xs text-muted-strong italic">{p.whyUseful}</p>
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <a href={p.url} target="_blank" rel="noreferrer" className="text-xs text-accent-glow inline-flex items-center gap-1 hover:underline">
+        <a href={sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-accent-glow inline-flex items-center gap-1 hover:underline">
           View source <ExternalLink className="w-3 h-3" />
         </a>
         <ActionButtons opportunityId={opp._id!} kind="job" status={opp.status} />

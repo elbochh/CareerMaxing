@@ -47,7 +47,10 @@ function parseDate(s?: string): string {
     s.match(/([A-Za-z]+\s+\d{1,2},\s*\d{4})/);
   if (m && m[1]) {
     const d = new Date(m[1]);
-    if (!isNaN(d.getTime())) return d.toISOString();
+    if (!isNaN(d.getTime())) {
+      d.setHours(23, 59, 59, 999);
+      return d.toISOString();
+    }
   }
   return new Date(Date.now() + 14 * 86400_000).toISOString();
 }
@@ -86,7 +89,7 @@ function map(h: DevpostApiHackathon): DevpostEventSeed {
     date: parseDate(h.submission_period_dates),
     location: stripHtml(h.displayed_location?.location) || (isOnline ? "Online" : "TBD"),
     isOnline,
-    source: "devpost",
+    source: "Devpost",
     url: h.url.startsWith("http") ? h.url : `https://devpost.com${h.url}`,
     tags: themes.slice(0, 8),
     domains: inferDomains(themes),
@@ -102,7 +105,6 @@ export async function fetchDevpostHackathons(): Promise<DevpostEventSeed[]> {
     const res = await fetch(url, {
       headers: { Accept: "application/json" },
       cache: "no-store",
-      next: { revalidate: 0 },
     });
     if (!res.ok) return [];
     const data = (await res.json()) as { hackathons?: DevpostApiHackathon[] };

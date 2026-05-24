@@ -2,6 +2,7 @@ import { format } from "date-fns";
 import { CalendarRange, ExternalLink, MapPin, Globe, Award, Users, Lightbulb, Wand2 } from "lucide-react";
 import { ScoreBadge } from "@/components/ScoreBadge";
 import { ActionButtons } from "@/components/ActionButtons";
+import { VerifiedSource } from "@/components/VerifiedSource";
 import type { EventPayload, OpportunityDoc } from "@/types";
 
 const URGENCY_BADGE: Record<EventPayload["urgency"], string> = {
@@ -14,6 +15,7 @@ export function EventCard({ opp }: { opp: OpportunityDoc<EventPayload> }) {
   const p = opp.payload;
   const title = p.title?.trim() || "Untitled event";
   const location = p.location?.trim() || "Location not listed";
+  const sourceUrl = opp.sourceUrl || p.url;
   const date = (() => {
     try {
       return format(new Date(p.date), "EEE MMM d · h:mm a");
@@ -34,8 +36,9 @@ export function EventCard({ opp }: { opp: OpportunityDoc<EventPayload> }) {
               {p.isOnline ? <Globe className="w-3 h-3" /> : <MapPin className="w-3 h-3" />}
               {p.isOnline ? "Online" : location}
             </span>
-            <span className="badge">{p.source}</span>
+            <span className="badge">{opp.sourceName || p.source}</span>
             <span className={URGENCY_BADGE[p.urgency]}>{p.urgency} urgency</span>
+            <VerifiedSource opp={opp} />
           </div>
         </div>
         <ScoreBadge score={opp.score} band={opp.scoreBand} kindLabel="Career Value" />
@@ -97,7 +100,7 @@ export function EventCard({ opp }: { opp: OpportunityDoc<EventPayload> }) {
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3 pt-1">
-        <a href={p.url} target="_blank" rel="noreferrer" className="text-xs text-accent-glow inline-flex items-center gap-1 hover:underline">
+        <a href={sourceUrl} target="_blank" rel="noreferrer" className="text-xs text-accent-glow inline-flex items-center gap-1 hover:underline">
           View source <ExternalLink className="w-3 h-3" />
         </a>
         <ActionButtons opportunityId={opp._id!} kind="event" status={opp.status} />

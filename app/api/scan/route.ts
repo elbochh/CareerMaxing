@@ -45,9 +45,24 @@ export async function POST() {
       expandedSubfields: domain.expandedSubfields.slice(0, 10),
     },
     counts: {
-      jobs: { found: jobs.found, new: jobs.newInserted, updated: jobs.updatedExisting },
-      events: { found: events.found, new: events.newInserted, updated: events.updatedExisting },
-      courses: { found: courses.found, new: courses.newInserted, updated: courses.updatedExisting },
+      jobs: {
+        found: jobs.found,
+        new: jobs.newInserted,
+        updated: jobs.updatedExisting,
+        rejected: jobs.rejected,
+      },
+      events: {
+        found: events.found,
+        new: events.newInserted,
+        updated: events.updatedExisting,
+        rejected: events.rejected,
+      },
+      courses: {
+        found: courses.found,
+        new: courses.newInserted,
+        updated: courses.updatedExisting,
+        rejected: courses.rejected,
+      },
     },
   });
 }

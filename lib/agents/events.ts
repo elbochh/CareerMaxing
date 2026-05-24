@@ -1,9 +1,9 @@
-import eventsSeed from "@/seed/events.json";
 import { bandAction, bandFor, clampScore } from "@/lib/scoring";
 import { eventKey } from "@/lib/dedupe";
 import { upsertOpportunityForScan } from "@/lib/db/repos";
 import { profileFingerprint } from "@/lib/profile";
 import { fetchDevpostHackathons } from "@/lib/services/devpost";
+import { validateResourceBatch } from "@/lib/source-validation";
 import type {
   AgentScanContext,
   DomainExpansion,
@@ -143,6 +143,7 @@ export interface EventAgentResult {
   newInserted: number;
   updatedExisting: number;
   inserted: OpportunityDoc[];
+  rejected: number;
 }
 
 function dedupeEvents(events: EventSeed[]): EventSeed[] {
@@ -162,25 +163,30 @@ export async function runEventAgent(
   domainExp: DomainExpansion,
   scanContext?: AgentScanContext,
 ): Promise<EventAgentResult> {
-  const useMock = process.env.USE_MOCK_DATA !== "false";
   let liveEvents: EventSeed[] = [];
-  if (!useMock) {
-    try {
-      const devpost = await fetchDevpostHackathons();
-      liveEvents = devpost as EventSeed[];
-    } catch (err) {
-      console.warn(
-        "[events] devpost fetch failed, using seed only:",
-        (err as Error).message,
-      );
-    }
+  try {
+    const devpost = await fetchDevpostHackathons();
+    liveEvents = devpost as EventSeed[];
+  } catch (err) {
+    console.warn("[events] devpost fetch failed:", (err as Error).message);
   }
-  const all = dedupeEvents([...liveEvents, ...(eventsSeed as EventSeed[])]);
-  const candidates = all
+  const candidates = dedupeEvents(liveEvents)
     .map((ev) => ({ ev, score: scoreEvent(profile, domainExp, ev) }))
     .filter((c) => c.score >= 50)
     .sort((a, b) => b.score - a.score)
-    .slice(0, useMock ? 12 : 24);
+    .slice(0, 24);
+
+  const audit = await validateResourceBatch("events", candidates, (c) => ({
+    kind: "event",
+    title: c.ev.title,
+    organization: c.ev.organizer,
+    location: c.ev.location,
+    isOnline: c.ev.isOnline,
+    eventDate: c.ev.date,
+    sourceName: c.ev.source,
+    sourceUrl: c.ev.url,
+    evidenceType: "trusted_api",
+  }));
 
   const now = new Date().toISOString();
   const context = scanContext || {
@@ -189,7 +195,7 @@ export async function runEventAgent(
   };
   const inserted: OpportunityDoc[] = [];
   let updatedExisting = 0;
-  for (const { ev, score } of candidates) {
+  for (const { item: { ev, score }, validation } of audit.accepted) {
     const band = bandFor(score);
     const payload: EventPayload = {
       title: ev.title,
@@ -208,7 +214,7 @@ export async function runEventAgent(
       likelyAttendees: ev.likelyAttendees,
       prizes: ev.prizes,
       evaluationCriteria: ev.evaluationCriteria,
-      whyUseful: `Strong fit for ${profile.primaryDomain} (${score}/100). ${ev.isOnline ? "Online and free" : "Local to " + ev.location}.`,
+      whyUseful: `Strong fit for ${profile.primaryDomain} (${score}/100). ${ev.isOnline ? "Online and free" : "Local to " + ev.location}. Source verified.`,
       suggestedPrep: suggestedPrep(ev),
       suggestedProjectAngle:
         ev.eventType === "hackathon" || ev.eventType === "competition"
@@ -223,8 +229,14 @@ export async function runEventAgent(
       profileFingerprint: context.profileFingerprint,
       scanId: context.scanId,
       dedupeKey,
-      sourceUrl: payload.url,
-      source: payload.source,
+      sourceUrl: validation.sourceUrl,
+      source: validation.sourceName,
+      isVerified: validation.isVerified,
+      verifiedAt: validation.verifiedAt,
+      sourceName: validation.sourceName,
+      confidenceScore: validation.confidenceScore,
+      rejectionReason: validation.rejectionReason,
+      verificationNotes: validation.verificationNotes,
       payload,
       score,
       scoreBand: band,
@@ -238,5 +250,11 @@ export async function runEventAgent(
       updatedExisting += 1;
     }
   }
-  return { found: candidates.length, newInserted: inserted.length, updatedExisting, inserted };
+  return {
+    found: audit.accepted.length,
+    newInserted: inserted.length,
+    updatedExisting,
+    inserted,
+    rejected: audit.rejected.length,
+  };
 }
