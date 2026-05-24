@@ -40,23 +40,71 @@ interface RemotiveApiResponse {
 const BASE =
   process.env.REMOTIVE_API_BASE || "https://remotive.com/api/remote-jobs";
 
-const AI_TAGS = new Set([
-  "ai",
+// AI/ML signals that, when present in the TITLE, mark a job as AI-relevant.
+const AI_TITLE_SIGNALS = [
+  "ai engineer",
+  "ai developer",
+  "ai agent",
+  "ai automation",
+  "ai/ml",
+  "ml/ai",
+  "ml engineer",
+  "ml developer",
   "machine learning",
-  "ml",
+  "deep learning",
+  "data scien",
   "nlp",
   "llm",
   "generative ai",
-  "data science",
+  "gen ai",
   "computer vision",
-  "deep learning",
   "mlops",
-  "pytorch",
-  "tensorflow",
+  "prompt eng",
+  "applied ai",
+  "applied ml",
+  "applied scientist",
+  "research scientist",
+  "research engineer",
+  "ai research",
+  "ml research",
+  "rag engineer",
   "langchain",
-  "agents",
-  "rag",
-]);
+  "agent engineer",
+  "ai intern",
+  "ml intern",
+  "ai product",
+  "ai/data",
+];
+
+// Hard exclude — non-engineering roles that may have "AI" in the title.
+const EXCLUDE_TITLE = [
+  "office assistant",
+  "media specialist",
+  "media buyer",
+  "sales",
+  "account exec",
+  "customer support",
+  "customer service",
+  "recruiter",
+  "talent acquisition",
+  "hr ",
+  "human resources",
+  "video editor",
+  "video artist",
+  "writer",
+  "copywriter",
+  "translator",
+  "designer",
+  "director",
+  "head of",
+  "vp of",
+  "vice president",
+  "business transformation",
+  "revenue",
+  "marketing",
+  "operations manager",
+  "project manager",
+];
 
 function inferLevel(title: string, tags: string[], job_type: string): ExperienceLevel {
   const t = `${title} ${tags.join(" ")} ${job_type}`.toLowerCase();
@@ -65,15 +113,16 @@ function inferLevel(title: string, tags: string[], job_type: string): Experience
   return "intermediate";
 }
 
-function inferDomains(title: string, tags: string[]): string[] {
-  const t = `${title} ${tags.join(" ")}`.toLowerCase();
-  const out = new Set<string>();
-  if (/(agent|langchain|llm orchestr)/.test(t)) out.add("Agentic AI");
-  if (/(nlp|llm|gpt|language)/.test(t)) out.add("NLP / LLMs");
+function inferDomains(title: string, tags: string[], category?: string): string[] {
+  const t = `${title} ${tags.join(" ")} ${category || ""}`.toLowerCase();
+  const out = new Set<string>(["AI general"]);
+  if (/(agent|langchain|langgraph|autogen|crewai|rag|tool[\s\-]?use)/.test(t)) out.add("Agentic AI");
+  if (/(nlp|llm|gpt|language|chatbot|conversational)/.test(t)) out.add("NLP / LLMs");
   if (/(vision|cv|image|detection|segmentation)/.test(t)) out.add("Computer Vision");
-  if (/(mlops|infra|pipeline)/.test(t)) out.add("MLOps");
+  if (/(mlops|infra|pipeline|deploy|kubernetes|airflow)/.test(t)) out.add("MLOps");
   if (/(data scien|analyt)/.test(t)) out.add("Data Science");
-  if (out.size === 0) out.add("AI general");
+  if (/(machine learning|ml engineer|deep learning|reinforcement)/.test(t)) out.add("Machine Learning");
+  if (/(robot)/.test(t)) out.add("Robotics");
   return Array.from(out);
 }
 
@@ -91,9 +140,20 @@ function stripHtml(html: string): string {
 }
 
 function looksAi(j: RemotiveApiJob): boolean {
-  const t = `${j.title} ${j.category} ${j.tags.join(" ")}`.toLowerCase();
-  if ([...AI_TAGS].some((kw) => t.includes(kw))) return true;
-  if (j.category && j.category.toLowerCase().includes("data")) return true;
+  const titleLc = (j.title || "").toLowerCase();
+  for (const ex of EXCLUDE_TITLE) {
+    if (titleLc.includes(ex)) return false;
+  }
+  // Strong signal: title contains an AI/ML engineering keyword.
+  if (AI_TITLE_SIGNALS.some((kw) => titleLc.includes(kw))) return true;
+  // Soft signal: Remotive officially categorizes this job as AI and the title
+  // is a credible engineering role (not in the exclude list above).
+  const cat = (j.category || "").toLowerCase();
+  if (cat.includes("artificial") || cat.includes("data scien")) {
+    if (/\b(engineer|developer|scientist|researcher|architect|intern)\b/.test(titleLc)) {
+      return true;
+    }
+  }
   return false;
 }
 
@@ -113,7 +173,7 @@ function map(j: RemotiveApiJob): RemotiveJobSeed {
     tags,
     requiredSkills: tags.slice(0, 6),
     niceToHaveSkills: tags.slice(6, 10),
-    domains: inferDomains(j.title, j.tags),
+    domains: inferDomains(j.title, j.tags, j.category),
   };
 }
 
@@ -125,10 +185,16 @@ export async function fetchRemotiveJobs(
   const seenUrls = new Set<string>();
   const seenIds = new Set<number>();
 
-  // Always include the "ai" category as a base, then a couple of search queries
+  // Prefer Remotive's dedicated AI category, then targeted searches.
   const buckets: Array<{ params: URLSearchParams }> = [
-    { params: new URLSearchParams({ category: "software-dev", limit: String(perQuery) }) },
-    { params: new URLSearchParams({ search: "ai", limit: String(perQuery) }) },
+    {
+      params: new URLSearchParams({
+        category: "artificial-intelligence",
+        limit: String(perQuery),
+      }),
+    },
+    { params: new URLSearchParams({ search: "machine learning", limit: String(perQuery) }) },
+    { params: new URLSearchParams({ search: "ai engineer", limit: String(perQuery) }) },
   ];
   for (const q of queries.slice(0, 3)) {
     buckets.push({

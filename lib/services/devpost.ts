@@ -64,24 +64,34 @@ function inferDomains(themes: string[]): string[] {
   return Array.from(out);
 }
 
+function stripHtml(s: string | undefined): string | undefined {
+  if (!s) return undefined;
+  return s
+    .replace(/<[^>]+>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 function map(h: DevpostApiHackathon): DevpostEventSeed {
   const themes = (h.themes || []).map((t) => t.name);
   const isOnline =
     h.is_online === true ||
     (h.displayed_location?.location || "").toLowerCase().includes("online");
   return {
-    title: h.title,
+    title: stripHtml(h.title) || h.title,
     eventType: "hackathon",
-    organizer: h.organization_name || "Devpost",
+    organizer: stripHtml(h.organization_name) || "Devpost",
     date: parseDate(h.submission_period_dates),
-    location: h.displayed_location?.location || (isOnline ? "Online" : "TBD"),
+    location: stripHtml(h.displayed_location?.location) || (isOnline ? "Online" : "TBD"),
     isOnline,
     source: "devpost",
     url: h.url.startsWith("http") ? h.url : `https://devpost.com${h.url}`,
     tags: themes.slice(0, 8),
     domains: inferDomains(themes),
     likelyTopics: themes.slice(0, 6),
-    prizes: h.prize_amount,
+    prizes: stripHtml(h.prize_amount),
     evaluationCriteria: "Originality, technical execution, demo quality, and impact.",
   };
 }
