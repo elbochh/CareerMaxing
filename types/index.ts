@@ -60,6 +60,7 @@ export interface DomainExpansion {
   primaryDomain: PrimaryDomain;
   profileFingerprint?: string;
   expandedSubfields: string[];
+  locationExpansions: string[];
   jobSearchQueries: string[];
   eventSearchQueries: string[];
   learningSearchQueries: string[];

@@ -43,6 +43,7 @@ export async function POST() {
     domain: {
       primaryDomain: domain.primaryDomain,
       expandedSubfields: domain.expandedSubfields.slice(0, 10),
+      locationExpansions: domain.locationExpansions.slice(0, 12),
     },
     counts: {
       jobs: {

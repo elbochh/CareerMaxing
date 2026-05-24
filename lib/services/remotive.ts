@@ -209,7 +209,7 @@ export async function fetchRemotiveJobs(
     { params: new URLSearchParams({ search: "software engineer ai", limit: String(perQuery) }) },
     { params: new URLSearchParams({ search: "llm", limit: String(perQuery) }) },
   ];
-  for (const q of queries.slice(0, 8)) {
+  for (const q of queries.slice(0, 25)) {
     buckets.push({
       params: new URLSearchParams({ search: q, limit: String(perQuery) }),
     });

@@ -4,6 +4,8 @@ import { upsertOpportunityForScan } from "@/lib/db/repos";
 import { profileFingerprint } from "@/lib/profile";
 import { fetchRemotiveJobs } from "@/lib/services/remotive";
 import { fetchArbeitnowJobs } from "@/lib/services/arbeitnow";
+import { fetchHimalayasJobs } from "@/lib/services/himalayas";
+import { fetchJobicyJobs } from "@/lib/services/jobicy";
 import { validateResourceBatch } from "@/lib/source-validation";
 import type {
   AgentScanContext,
@@ -36,13 +38,34 @@ const LEVEL_RANK: Record<ExperienceLevel, number> = {
   advanced: 2,
 };
 
+const CANADA_LOCATION_MARKERS = [
+  "canada",
+  "toronto",
+  "vancouver",
+  "montreal",
+  "ottawa",
+  "waterloo",
+  "calgary",
+  "edmonton",
+  "alberta",
+  "ontario",
+  "british columbia",
+  " bc",
+  "quebec",
+];
+
+function isCanadaLocation(location: string): boolean {
+  const jobLoc = ` ${location.toLowerCase()} `;
+  return CANADA_LOCATION_MARKERS.some((marker) => jobLoc.includes(marker));
+}
+
 function locationScore(profile: UserProfile, job: JobSeed): number {
   const locs = profile.locations.map((l) => l.toLowerCase());
   const jobLoc = job.location.toLowerCase();
   let score = 0;
   if (locs.includes("calgary") && jobLoc.includes("calgary")) score = Math.max(score, 100);
   if (locs.includes("alberta") && (jobLoc.includes("alberta") || jobLoc.includes("calgary") || jobLoc.includes("edmonton"))) score = Math.max(score, 90);
-  if (locs.includes("canada") && (jobLoc.includes("canada") || jobLoc.includes("toronto") || jobLoc.includes("alberta") || jobLoc.includes("calgary") || jobLoc.includes("ontario"))) score = Math.max(score, 75);
+  if (locs.includes("canada") && isCanadaLocation(job.location)) score = Math.max(score, 75);
   if ((locs.includes("remote") || locs.includes("online")) && job.isRemote) score = Math.max(score, 95);
   return score;
 }
@@ -61,14 +84,7 @@ function matchesLocationPreference(profile: UserProfile, job: JobSeed): boolean 
   }
   if (
     locs.includes("canada") &&
-    (jobLoc.includes("canada") ||
-      jobLoc.includes("toronto") ||
-      jobLoc.includes("vancouver") ||
-      jobLoc.includes("montreal") ||
-      jobLoc.includes("ottawa") ||
-      jobLoc.includes("alberta") ||
-      jobLoc.includes("calgary") ||
-      jobLoc.includes("ontario"))
+    isCanadaLocation(job.location)
   ) {
     return true;
   }
@@ -186,14 +202,21 @@ export async function runJobAgent(
   try {
     const queries = [
       ...(domainExp.jobSearchQueries || []),
+      ...(domainExp.locationExpansions || []).map((location) => `${profile.primaryDomain} jobs ${location}`),
+      ...(domainExp.locationExpansions || []).map((location) => `AI jobs ${location}`),
+      ...(domainExp.jobTitles || []).flatMap((title) =>
+        (domainExp.locationExpansions || []).slice(0, 8).map((location) => `${title} ${location}`),
+      ),
       profile.primaryDomain,
       ...profile.skills.slice(0, 4),
     ];
-    const [remotive, arbeitnow] = await Promise.all([
+    const [remotive, arbeitnow, himalayas, jobicy] = await Promise.all([
       fetchRemotiveJobs(queries),
       fetchArbeitnowJobs(queries),
+      fetchHimalayasJobs(queries, profile.locations),
+      fetchJobicyJobs(profile.locations),
     ]);
-    liveJobs = [...remotive, ...arbeitnow] as JobSeed[];
+    liveJobs = [...remotive, ...arbeitnow, ...himalayas, ...jobicy] as JobSeed[];
   } catch (err) {
     console.warn("[jobs] live fetch failed:", (err as Error).message);
   }
