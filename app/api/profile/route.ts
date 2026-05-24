@@ -1,21 +1,33 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProfile, upsertProfile } from "@/lib/db/repos";
-import { DEFAULT_USER_ID, type UserProfile } from "@/types";
+import { requireUserId, unauthorizedResponse } from "@/lib/auth-helpers";
+import type { UserProfile } from "@/types";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const profile = await getProfile(DEFAULT_USER_ID);
-  return NextResponse.json({ profile });
+  try {
+    const userId = await requireUserId();
+    const profile = await getProfile(userId);
+    return NextResponse.json({ profile });
+  } catch {
+    return unauthorizedResponse();
+  }
 }
 
 export async function PUT(req: NextRequest) {
+  let userId: string;
+  try {
+    userId = await requireUserId();
+  } catch {
+    return unauthorizedResponse();
+  }
   const body = (await req.json()) as Partial<UserProfile>;
   if (!body.name || !body.primaryDomain || !body.level) {
     return NextResponse.json({ error: "name, level, primaryDomain are required" }, { status: 400 });
   }
   const profile: UserProfile = {
-    userId: DEFAULT_USER_ID,
+    userId,
     name: body.name,
     school: body.school || "",
     level: body.level,

@@ -57,6 +57,7 @@ async function ensureIndexes(db: Db) {
       db.collection("tasks").createIndex({ userId: 1, weekStart: 1 }),
       db.collection("profiles").createIndex({ userId: 1 }, { unique: true }),
       db.collection("domainExpansions").createIndex({ userId: 1 }, { unique: true }),
+      db.collection("users").createIndex({ email: 1 }, { unique: true }),
     ]);
   } catch (err) {
     console.warn("[mongo] ensureIndexes warning:", (err as Error).message);

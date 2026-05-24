@@ -5,7 +5,7 @@ import { fetchGmailOpportunities } from "@/lib/services/gmail";
 import { runEmailAgent } from "@/lib/agents/email";
 import { findEmailByKey, insertEmail } from "@/lib/db/repos";
 import { emailKey } from "@/lib/dedupe";
-import { DEFAULT_USER_ID, type EmailDoc } from "@/types";
+import type { EmailDoc } from "@/types";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +14,9 @@ export async function GET() {
     return NextResponse.json({ error: "gmail_not_configured" }, { status: 400 });
   }
   const session = await getServerSession(authOptions);
+  const userId = session?.user?.id;
   const accessToken = (session as any)?.accessToken as string | undefined;
-  if (!accessToken) {
+  if (!userId || !accessToken) {
     return NextResponse.json(
       { error: "sign_in_required", signInUrl: "/api/auth/signin/google" },
       { status: 401 },
@@ -25,7 +26,7 @@ export async function GET() {
   let added = 0;
   for (const m of messages) {
     const dedupeKey = emailKey(m.subject, m.sender, m.date) || m.id;
-    const existing = await findEmailByKey(DEFAULT_USER_ID, dedupeKey);
+    const existing = await findEmailByKey(userId, dedupeKey);
     if (existing) continue;
     try {
       const analysis = await runEmailAgent({
@@ -34,7 +35,7 @@ export async function GET() {
         body: m.snippet, // snippet-only by design
       });
       const doc: Omit<EmailDoc, "_id"> = {
-        userId: DEFAULT_USER_ID,
+        userId,
         dedupeKey,
         subject: m.subject,
         sender: m.sender,

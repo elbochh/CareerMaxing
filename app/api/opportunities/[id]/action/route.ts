@@ -7,17 +7,26 @@ import {
   updateOpportunityStatus,
 } from "@/lib/db/repos";
 import { buildTasksForApproved, weekStartFor } from "@/lib/agents/checklist";
-import { DEFAULT_USER_ID, type CoursePayload, type EventPayload, type JobPayload } from "@/types";
+import { requireUserId, unauthorizedResponse } from "@/lib/auth-helpers";
+import type { CoursePayload, EventPayload, JobPayload } from "@/types";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
+  let userId: string;
+  try {
+    userId = await requireUserId();
+  } catch {
+    return unauthorizedResponse();
+  }
   const body = await req.json();
   const action = body.action as "follow" | "ignore" | "save";
   const intensity = (body.intensity || "standard") as "light" | "standard" | "full";
 
   const opp = await getOpportunity(ctx.params.id);
-  if (!opp) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!opp || opp.userId !== userId) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
 
   if (action === "ignore") {
     await updateOpportunityStatus(opp._id!, "ignored");
@@ -28,10 +37,10 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     return NextResponse.json({ ok: true, status: "saved" });
   }
   // follow
-  const profile = await getProfile(DEFAULT_USER_ID);
+  const profile = await getProfile(userId);
   if (!profile) return NextResponse.json({ error: "profile_missing" }, { status: 400 });
   const weekStart = weekStartFor();
-  const existing = await listTasksForWeek(DEFAULT_USER_ID, weekStart);
+  const existing = await listTasksForWeek(userId, weekStart);
 
   let source;
   if (opp.kind === "job") {

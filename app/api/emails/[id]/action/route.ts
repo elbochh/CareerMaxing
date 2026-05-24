@@ -7,17 +7,25 @@ import {
   updateEmailStatus,
 } from "@/lib/db/repos";
 import { buildTasksForApproved, weekStartFor } from "@/lib/agents/checklist";
-import { DEFAULT_USER_ID } from "@/types";
+import { requireUserId, unauthorizedResponse } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
+  let userId: string;
+  try {
+    userId = await requireUserId();
+  } catch {
+    return unauthorizedResponse();
+  }
   const body = await req.json();
   const action = body.action as "follow" | "ignore" | "save";
   const intensity = (body.intensity || "standard") as "light" | "standard" | "full";
 
   const email = await getEmail(ctx.params.id);
-  if (!email) return NextResponse.json({ error: "not_found" }, { status: 404 });
+  if (!email || email.userId !== userId) {
+    return NextResponse.json({ error: "not_found" }, { status: 404 });
+  }
 
   if (action === "ignore") {
     await updateEmailStatus(email._id!, "ignored");
@@ -27,10 +35,10 @@ export async function POST(req: NextRequest, ctx: { params: { id: string } }) {
     await updateEmailStatus(email._id!, "saved");
     return NextResponse.json({ ok: true, status: "saved" });
   }
-  const profile = await getProfile(DEFAULT_USER_ID);
+  const profile = await getProfile(userId);
   if (!profile) return NextResponse.json({ error: "profile_missing" }, { status: 400 });
   const weekStart = weekStartFor();
-  const existing = await listTasksForWeek(DEFAULT_USER_ID, weekStart);
+  const existing = await listTasksForWeek(userId, weekStart);
   const result = buildTasksForApproved({
     profile,
     existingTasks: existing,
