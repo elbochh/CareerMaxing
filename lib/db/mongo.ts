@@ -8,27 +8,46 @@ declare global {
   var _mongoClient: MongoClient | undefined;
   // eslint-disable-next-line no-var
   var _mongoIndexesInit: boolean | undefined;
+  // eslint-disable-next-line no-var
+  var _mongoDisabled: boolean | undefined;
 }
 
 let clientPromise: Promise<MongoClient> | null = null;
 
+/**
+ * Returns true when the Mongo client is configured AND has not already failed
+ * to connect in this process. The moment a connection attempt fails we
+ * permanently flip to in-memory mode for the rest of the dev session so the
+ * app stays usable even if Atlas is unreachable (IP allowlist, TLS, etc.).
+ */
 export function isDbConfigured(): boolean {
+  if (global._mongoDisabled) return false;
   return Boolean(uri && uri.length > 0);
 }
 
+function disableDb(reason: string) {
+  if (!global._mongoDisabled) {
+    console.warn(
+      `[mongo] disabling DB and falling back to in-memory storage: ${reason}`,
+    );
+    global._mongoDisabled = true;
+  }
+}
+
 export async function getClient(): Promise<MongoClient> {
-  if (!uri) {
-    throw new Error("MONGODB_URI is not set");
-  }
-  if (global._mongoClient) {
-    return global._mongoClient;
-  }
+  if (!uri) throw new Error("MONGODB_URI is not set");
+  if (global._mongoClient) return global._mongoClient;
   if (!clientPromise) {
     const client = new MongoClient(uri, {
       maxPoolSize: 10,
-      serverSelectionTimeoutMS: 8000,
+      serverSelectionTimeoutMS: 4000,
+      connectTimeoutMS: 4000,
     });
-    clientPromise = client.connect();
+    clientPromise = client.connect().catch((err) => {
+      clientPromise = null;
+      disableDb((err as Error).message);
+      throw err;
+    });
   }
   const connected = await clientPromise;
   global._mongoClient = connected;
@@ -43,6 +62,21 @@ export async function getDb(): Promise<Db> {
     global._mongoIndexesInit = true;
   }
   return db;
+}
+
+/**
+ * Like getDb(), but returns null instead of throwing if Mongo can't be reached.
+ * Marks the DB as disabled on failure so future calls go straight to memory.
+ * Use this in repos to seamlessly fall back to in-memory mode.
+ */
+export async function tryGetDb(): Promise<Db | null> {
+  if (!isDbConfigured()) return null;
+  try {
+    return await getDb();
+  } catch (err) {
+    disableDb((err as Error).message);
+    return null;
+  }
 }
 
 async function ensureIndexes(db: Db) {

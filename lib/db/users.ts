@@ -1,5 +1,5 @@
 import { ObjectId } from "mongodb";
-import { getDb, isDbConfigured } from "./mongo";
+import { tryGetDb } from "./mongo";
 
 export interface UserRecord {
   _id: string;
@@ -11,8 +11,13 @@ export interface UserRecord {
   createdAt: string;
 }
 
-// In-memory fallback (only when MONGODB_URI is missing)
-const memory = new Map<string, UserRecord>();
+// In-memory fallback (used when MONGODB_URI is missing OR Mongo is unreachable)
+declare global {
+  // eslint-disable-next-line no-var
+  var _usersMemory: Map<string, UserRecord> | undefined;
+}
+const memory: Map<string, UserRecord> = global._usersMemory || new Map();
+global._usersMemory = memory;
 
 function newId() {
   return new ObjectId().toString();
@@ -22,22 +27,40 @@ function normalize(email: string): string {
   return email.trim().toLowerCase();
 }
 
+function stripId<T extends { _id?: any }>(doc: T): T {
+  if (doc && doc._id && typeof doc._id !== "string") {
+    return { ...doc, _id: doc._id.toString() };
+  }
+  return doc;
+}
+
+function findInMemoryByEmail(email: string): UserRecord | null {
+  for (const u of memory.values()) if (u.email === email) return u;
+  return null;
+}
+
 export async function getUserByEmail(email: string): Promise<UserRecord | null> {
   const e = normalize(email);
-  if (!isDbConfigured()) {
-    for (const u of memory.values()) if (u.email === e) return u;
-    return null;
+  const db = await tryGetDb();
+  if (!db) return findInMemoryByEmail(e);
+  try {
+    const doc = await db.collection<UserRecord>("users").findOne({ email: e });
+    return doc ? stripId(doc) : null;
+  } catch (err) {
+    console.warn("[users] getUserByEmail mongo failed, falling back:", (err as Error).message);
+    return findInMemoryByEmail(e);
   }
-  const db = await getDb();
-  const doc = await db.collection<UserRecord>("users").findOne({ email: e });
-  return doc ? stripId(doc) : null;
 }
 
 export async function getUserById(id: string): Promise<UserRecord | null> {
-  if (!isDbConfigured()) return memory.get(id) || null;
-  const db = await getDb();
-  const doc = await db.collection<UserRecord>("users").findOne({ _id: id as any });
-  return doc ? stripId(doc) : null;
+  const db = await tryGetDb();
+  if (!db) return memory.get(id) || null;
+  try {
+    const doc = await db.collection<UserRecord>("users").findOne({ _id: id as any });
+    return doc ? stripId(doc) : null;
+  } catch {
+    return memory.get(id) || null;
+  }
 }
 
 export async function createUser(input: {
@@ -57,13 +80,19 @@ export async function createUser(input: {
     image: input.image,
     createdAt: now,
   };
-  if (!isDbConfigured()) {
+  const db = await tryGetDb();
+  if (!db) {
     memory.set(record._id, record);
     return record;
   }
-  const db = await getDb();
-  await db.collection<UserRecord>("users").insertOne(record as any);
-  return record;
+  try {
+    await db.collection<UserRecord>("users").insertOne(record as any);
+    return record;
+  } catch (err) {
+    console.warn("[users] createUser mongo failed, falling back:", (err as Error).message);
+    memory.set(record._id, record);
+    return record;
+  }
 }
 
 export async function ensureGoogleUser(input: {
@@ -76,15 +105,8 @@ export async function ensureGoogleUser(input: {
   return createUser({
     name: input.name || input.email.split("@")[0],
     email: input.email,
-    passwordHash: "", // OAuth user has no password
+    passwordHash: "",
     provider: "google",
     image: input.image,
   });
-}
-
-function stripId<T extends { _id?: any }>(doc: T): T {
-  if (doc && doc._id && typeof doc._id !== "string") {
-    return { ...doc, _id: doc._id.toString() };
-  }
-  return doc;
 }
