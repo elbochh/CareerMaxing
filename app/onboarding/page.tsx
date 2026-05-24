@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
 import { Sparkles, Loader2 } from "lucide-react";
 import type {
   CareerGoal,
@@ -84,8 +85,10 @@ function ChipToggle<T extends string>({
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { data: session } = useSession();
   const [loading, setLoading] = useState(false);
   const [hydrated, setHydrated] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [form, setForm] = useState<UserProfile>({
     userId: "local-user",
     name: "",
@@ -101,28 +104,66 @@ export default function OnboardingPage() {
   });
 
   useEffect(() => {
+    let alive = true;
     fetch("/api/profile")
       .then((r) => r.json())
       .then((d) => {
-        if (d.profile) setForm(d.profile);
+        if (!alive) return;
+        if (d.profile) {
+          setForm(d.profile);
+          return;
+        }
+        const fallbackName =
+          session?.user?.name?.trim() || session?.user?.email?.split("@")[0] || "";
+        if (fallbackName) {
+          setForm((current) => ({ ...current, name: fallbackName }));
+        }
       })
-      .finally(() => setHydrated(true));
-  }, []);
+      .catch(() => {
+        if (alive) setError("Could not load your profile. Try refreshing the page.");
+      })
+      .finally(() => {
+        if (alive) setHydrated(true);
+      });
+
+    return () => {
+      alive = false;
+    };
+  }, [session?.user?.email, session?.user?.name]);
 
   function toggleArr<T extends string>(arr: T[], v: T): T[] {
     return arr.includes(v) ? arr.filter((x) => x !== v) : [...arr, v];
   }
 
   async function save() {
+    const name = form.name.trim();
+    if (!name) {
+      setError("Add your name before continuing.");
+      return;
+    }
+    setError(null);
     setLoading(true);
     try {
       const r = await fetch("/api/profile", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          name,
+          weeklyHours: form.weeklyHours || 8,
+          schedule: form.schedule || [],
+        }),
       });
-      if (!r.ok) throw new Error("Save failed");
-      router.push("/dashboard");
+      const data = await r.json().catch(() => ({}));
+      if (r.status === 401) {
+        router.push("/login?callbackUrl=/onboarding");
+        return;
+      }
+      if (!r.ok) throw new Error(data.message || data.error || "Save failed");
+      router.replace("/dashboard");
+      router.refresh();
+    } catch (err) {
+      setError((err as Error).message);
     } finally {
       setLoading(false);
     }
@@ -271,10 +312,13 @@ export default function OnboardingPage() {
           </section>
 
           <div className="flex items-center justify-end gap-3">
+            {error && (
+              <p className="text-xs font-semibold text-rose-600 mr-auto">{error}</p>
+            )}
             <button
               className={cn("btn-primary px-5 py-3", loading && "opacity-60")}
               onClick={save}
-              disabled={loading || !form.name}
+              disabled={loading}
             >
               {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
               Save and continue
