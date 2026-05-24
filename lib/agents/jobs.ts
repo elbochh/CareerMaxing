@@ -6,6 +6,7 @@ import {
   findOpportunityByUrl,
   insertOpportunity,
 } from "@/lib/db/repos";
+import { fetchRemotiveJobs } from "@/lib/services/remotive";
 import type {
   DomainExpansion,
   ExperienceLevel,
@@ -130,17 +131,41 @@ export interface JobAgentResult {
   inserted: OpportunityDoc[];
 }
 
+function dedupeJobs(jobs: JobSeed[]): JobSeed[] {
+  const seen = new Set<string>();
+  const out: JobSeed[] = [];
+  for (const j of jobs) {
+    const key = `${j.title.toLowerCase().trim()}|${j.company.toLowerCase().trim()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(j);
+  }
+  return out;
+}
+
 export async function runJobAgent(
   profile: UserProfile,
   domainExp: DomainExpansion,
 ): Promise<JobAgentResult> {
-  const allJobs = jobsSeed as JobSeed[];
-  // Filter to jobs that touch the user's domain (or subfields) and location
+  const useMock = process.env.USE_MOCK_DATA !== "false";
+
+  let liveJobs: JobSeed[] = [];
+  if (!useMock) {
+    try {
+      const queries = (domainExp.jobSearchQueries || []).slice(0, 3);
+      const remotive = await fetchRemotiveJobs(queries);
+      liveJobs = remotive as JobSeed[];
+    } catch (err) {
+      console.warn("[jobs] live fetch failed, falling back to seed:", (err as Error).message);
+    }
+  }
+  const allJobs = dedupeJobs([...liveJobs, ...(jobsSeed as JobSeed[])]);
+
   const candidates = allJobs
     .map((j) => ({ job: j, ...scoreJob(profile, domainExp, j) }))
     .filter((c) => c.score >= 40)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 12);
+    .slice(0, useMock ? 12 : 24);
 
   const now = new Date().toISOString();
   const inserted: OpportunityDoc[] = [];
