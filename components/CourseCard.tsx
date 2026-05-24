@@ -5,16 +5,18 @@ import type { CoursePayload, OpportunityDoc } from "@/types";
 
 export function CourseCard({ opp }: { opp: OpportunityDoc<CoursePayload> }) {
   const p = opp.payload;
+  const title = p.title?.trim() || "Untitled course";
+  const provider = p.provider?.trim() || "Unknown provider";
   return (
     <article className="card card-hover p-5 space-y-3 animate-slide-up">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-white font-semibold leading-tight flex items-center gap-2">
+          <h3 className="text-slate-800 font-semibold leading-tight flex items-center gap-2">
             {p.pathWeek && <span className="badge-accent">Week {p.pathWeek}</span>}
-            {p.title}
+            {title}
           </h3>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted mt-1">
-            <span className="inline-flex items-center gap-1"><GraduationCap className="w-3 h-3" />{p.provider}</span>
+            <span className="inline-flex items-center gap-1"><GraduationCap className="w-3 h-3" />{provider}</span>
             <span className="badge">{p.level}</span>
             <span className="inline-flex items-center gap-1"><Clock className="w-3 h-3" />{p.estimatedHours}h</span>
             <span className="inline-flex items-center gap-1"><DollarSign className="w-3 h-3" />{p.cost}</span>

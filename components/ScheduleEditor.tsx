@@ -130,7 +130,7 @@ export function ScheduleEditor({ slots, onChange }: Props) {
       <div className="card p-4 space-y-3">
         <div className="flex items-center gap-2">
           <ImageIcon className="w-4 h-4 text-accent" />
-          <h3 className="text-sm font-semibold text-white">Upload your schedule image</h3>
+          <h3 className="text-sm font-semibold text-slate-800">Upload your schedule image</h3>
         </div>
         <p className="text-xs text-muted">
           Drop a screenshot of your school timetable. The AI reads day + time + class name. Powered by OpenAI Vision. You can edit anything it gets wrong.
@@ -179,7 +179,7 @@ export function ScheduleEditor({ slots, onChange }: Props) {
       <div className="card p-4 space-y-3">
         <div className="flex items-center gap-2">
           <Plus className="w-4 h-4 text-accent" />
-          <h3 className="text-sm font-semibold text-white">Add a class manually</h3>
+          <h3 className="text-sm font-semibold text-slate-800">Add a class manually</h3>
         </div>
         <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 items-end">
           <div>
@@ -254,7 +254,7 @@ export function ScheduleEditor({ slots, onChange }: Props) {
       ) : (
         <div className="grid lg:grid-cols-2 gap-4">
           <div className="card p-4 space-y-2">
-            <h3 className="text-sm font-semibold text-white">Class list ({slots.length})</h3>
+            <h3 className="text-sm font-semibold text-slate-800">Class list ({slots.length})</h3>
             <div className="divide-y divide-border">
               {slots.map((s, i) => (
                 <SlotRow
@@ -274,7 +274,7 @@ export function ScheduleEditor({ slots, onChange }: Props) {
           </div>
 
           <div className="card p-4 space-y-2 overflow-x-auto">
-            <h3 className="text-sm font-semibold text-white">Week preview</h3>
+            <h3 className="text-sm font-semibold text-slate-800">Week preview</h3>
             <WeekGrid slots={slots} hours={hours} />
           </div>
         </div>

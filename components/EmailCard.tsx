@@ -15,6 +15,8 @@ const URGENCY_BADGE = {
 export function EmailCard({ email }: { email: EmailDoc }) {
   const router = useRouter();
   const a = email.analysis;
+  const subject = email.subject?.trim() || "Untitled email";
+  const sender = email.sender?.trim() || "Unknown sender";
   const [local, setLocal] = useState(email.status);
   const [busy, setBusy] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
@@ -45,9 +47,9 @@ export function EmailCard({ email }: { email: EmailDoc }) {
     <article className="card card-hover p-5 space-y-3 animate-slide-up">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-white font-semibold leading-tight">{email.subject}</h3>
+          <h3 className="text-slate-800 font-semibold leading-tight">{subject}</h3>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted mt-1">
-            <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{email.sender}</span>
+            <span className="inline-flex items-center gap-1"><User className="w-3 h-3" />{sender}</span>
             <span className="badge">{a.category}</span>
             <span className={URGENCY_BADGE[a.urgency]}>{a.urgency}</span>
             {a.isCareerRelated ? (
@@ -59,7 +61,7 @@ export function EmailCard({ email }: { email: EmailDoc }) {
         </div>
         <div className="text-right shrink-0">
           <div className="text-xs text-muted">Value</div>
-          <div className="text-2xl font-bold text-white">{a.careerValueScore}</div>
+          <div className="text-2xl font-bold text-slate-800">{a.careerValueScore}</div>
         </div>
       </div>
 

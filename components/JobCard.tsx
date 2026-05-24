@@ -5,14 +5,17 @@ import type { JobPayload, OpportunityDoc } from "@/types";
 
 export function JobCard({ opp }: { opp: OpportunityDoc<JobPayload> }) {
   const p = opp.payload;
+  const title = p.title?.trim() || "Untitled job opportunity";
+  const company = p.company?.trim() || "Unknown company";
+  const location = p.location?.trim() || "Location not listed";
   return (
     <article className="card card-hover p-5 space-y-3 animate-slide-up">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <h3 className="text-white font-semibold leading-tight">{p.title}</h3>
+          <h3 className="text-slate-800 font-semibold leading-tight">{title}</h3>
           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted mt-1">
-            <span className="inline-flex items-center gap-1"><Briefcase className="w-3 h-3" />{p.company}</span>
-            <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{p.location}</span>
+            <span className="inline-flex items-center gap-1"><Briefcase className="w-3 h-3" />{company}</span>
+            <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{location}</span>
             {p.isRemote && <span className="badge-accent">Remote</span>}
             <span className="badge">{p.source}</span>
             <span className="badge">{p.difficulty}</span>
