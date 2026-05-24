@@ -2,11 +2,14 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
+import { signIn } from "next-auth/react";
 import { Lock, Mail, Loader2, ArrowLeft, Eye, EyeOff } from "lucide-react";
 
 export default function LoginPage() {
   const router = useRouter();
+  const params = useSearchParams();
+  const callbackUrl = params.get("callbackUrl") || "/dashboard";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -21,38 +24,40 @@ export default function LoginPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     
-    // 1. Check for empty strings
     if (!email.trim() || !password) {
-      setError("All credential signature inputs must be fully populated.");
+      setError("Email and password are required.");
       return;
     }
-
-    // 2. Validate email structure criteria (Case-Insensitive Sanitization)
     const sanitizedEmail = email.trim().toLowerCase();
     if (!isValidEmail(sanitizedEmail)) {
       setError("The email address is not in a valid format.");
       return;
     }
-
-    // 3. Length validations
-    if (password.length < 6) {
-      setError("Password must contain a minimum of 6 characters.");
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters.");
       return;
     }
 
     setError("");
     setLoading(true);
-
-    setTimeout(() => {
+    try {
+      const res = await signIn("credentials", {
+        email: sanitizedEmail,
+        password,
+        redirect: false,
+        callbackUrl,
+      });
+      if (!res || res.error) {
+        setError("Invalid email or password.");
+        return;
+      }
+      router.replace(callbackUrl);
+      router.refresh();
+    } catch (err) {
+      setError("Something went wrong. Please try again.");
+    } finally {
       setLoading(false);
-      
-      // 1. Save state flag into client browser history cache
-      localStorage.setItem("isUserLoggedIn", "true");
-      
-      // 2. Perform a native window assignment redirect. 
-      // This forces the background layout layout to re-verify localStorage instantly.
-      window.location.href = "/dashboard";
-    }, 1200);
+    }
   }
 
   const handleRevealStart = (e: React.MouseEvent | React.TouchEvent) => {
@@ -112,10 +117,7 @@ export default function LoginPage() {
                 value={password}
                 maxLength={32} // Max capacity block limit safeguard
                 onChange={(e) => setPassword(e.target.value)}
-                onPaste={(e) => {
-                  e.preventDefault(); // Complete paste action restriction rule
-                  setError("Security architecture prevents pasting key signatures. Manual entry required.");
-                }}
+                autoComplete="current-password"
                 placeholder="••••••••"
                 className="w-full pl-10 pr-12 py-2.5 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-[#5680E9] focus:bg-white text-xs font-semibold text-slate-700 transition-all"
               />

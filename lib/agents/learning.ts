@@ -6,6 +6,8 @@ import {
   findOpportunityByUrl,
   insertOpportunity,
 } from "@/lib/db/repos";
+import { llmCall, llmEnabled } from "@/lib/llm/client";
+import { z } from "zod";
 import type {
   CoursePayload,
   DomainExpansion,
@@ -54,6 +56,91 @@ function suggestedTasks(c: CourseSeed): string[] {
   return tasks;
 }
 
+const LlmCourseSchema = z.object({
+  recommendations: z.array(
+    z.object({
+      title: z.string().min(2).max(140),
+      provider: z.string().min(2).max(80),
+      url: z.string().url(),
+      level: z.enum(["beginner", "intermediate", "advanced"]),
+      estimatedHours: z.number().min(1).max(200),
+      domains: z.array(z.string()).min(1).max(6),
+      bestFor: z.array(z.string()).min(1).max(6),
+      rationale: z.string().min(8).max(280),
+    }),
+  ),
+});
+
+async function fetchLlmRecommendations(
+  profile: UserProfile,
+  domainExp: DomainExpansion,
+): Promise<CourseSeed[]> {
+  if (!llmEnabled()) return [];
+  const system = `You are a senior AI career mentor. Recommend 6 high-quality, mostly free or low-cost AI learning resources that map directly to the user's profile and domain expansion. Prefer well-known providers (Coursera, DeepLearning.AI, Fast.ai, Hugging Face, Anthropic, OpenAI Cookbook, Stanford, MIT OCW, freeCodeCamp, YouTube reputable creators). Each URL must be the real canonical course/course-list page. Output strict JSON.`;
+  const user = JSON.stringify({
+    profile: {
+      level: profile.level,
+      primaryDomain: profile.primaryDomain,
+      weeklyHours: profile.weeklyHours,
+      skills: profile.skills,
+      careerGoals: profile.careerGoals,
+    },
+    domain: {
+      expandedSubfields: domainExp.expandedSubfields.slice(0, 10),
+      learningSearchQueries: domainExp.learningSearchQueries?.slice(0, 6),
+    },
+    schema: {
+      recommendations: [
+        {
+          title: "string",
+          provider: "string",
+          url: "https://...",
+          level: "beginner|intermediate|advanced",
+          estimatedHours: "number",
+          domains: ["string"],
+          bestFor: ["string"],
+          rationale: "1 sentence",
+        },
+      ],
+    },
+  });
+  try {
+    const result = await llmCall({
+      system,
+      user,
+      schema: LlmCourseSchema,
+      maxTokens: 800,
+      temperature: 0.3,
+      mock: () => ({ recommendations: [] }),
+    });
+    return result.recommendations.map((r) => ({
+      title: r.title,
+      provider: r.provider,
+      level: r.level,
+      cost: "Free / low-cost",
+      estimatedHours: r.estimatedHours,
+      url: r.url,
+      domains: r.domains,
+      bestFor: r.bestFor,
+    }));
+  } catch (err) {
+    console.warn("[learning] LLM recommendations failed:", (err as Error).message);
+    return [];
+  }
+}
+
+function dedupeCourses(courses: CourseSeed[]): CourseSeed[] {
+  const seen = new Set<string>();
+  const out: CourseSeed[] = [];
+  for (const c of courses) {
+    const key = `${c.title.toLowerCase().trim()}|${c.provider.toLowerCase().trim()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(c);
+  }
+  return out;
+}
+
 export interface LearningAgentResult {
   found: number;
   newInserted: number;
@@ -64,7 +151,9 @@ export async function runLearningAgent(
   profile: UserProfile,
   domainExp: DomainExpansion,
 ): Promise<LearningAgentResult> {
-  const all = coursesSeed as CourseSeed[];
+  const seed = coursesSeed as CourseSeed[];
+  const live = await fetchLlmRecommendations(profile, domainExp);
+  const all = dedupeCourses([...live, ...seed]);
 
   const scored = all.map((c) => {
     const dom = domainScore(domainExp, c);

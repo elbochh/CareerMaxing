@@ -1,15 +1,21 @@
 import { NextResponse } from "next/server";
-import { DEFAULT_USER_ID } from "@/types";
 import { getProfile } from "@/lib/db/repos";
 import { runDomainAgent } from "@/lib/agents/domain";
 import { runJobAgent } from "@/lib/agents/jobs";
 import { runEventAgent } from "@/lib/agents/events";
 import { runLearningAgent } from "@/lib/agents/learning";
+import { requireUserId, unauthorizedResponse } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
 export async function POST() {
-  const profile = await getProfile(DEFAULT_USER_ID);
+  let userId: string;
+  try {
+    userId = await requireUserId();
+  } catch {
+    return unauthorizedResponse();
+  }
+  const profile = await getProfile(userId);
   if (!profile) {
     return NextResponse.json({ error: "profile_not_found" }, { status: 400 });
   }

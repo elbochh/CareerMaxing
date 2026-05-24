@@ -1,16 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProfile, listTasksForWeek } from "@/lib/db/repos";
 import { weekStartFor } from "@/lib/agents/checklist";
-import { DEFAULT_USER_ID } from "@/types";
+import { requireUserId, unauthorizedResponse } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
+  let userId: string;
+  try {
+    userId = await requireUserId();
+  } catch {
+    return unauthorizedResponse();
+  }
   const { searchParams } = new URL(req.url);
   const week = searchParams.get("week") || weekStartFor();
   const [tasks, profile] = await Promise.all([
-    listTasksForWeek(DEFAULT_USER_ID, week),
-    getProfile(DEFAULT_USER_ID),
+    listTasksForWeek(userId, week),
+    getProfile(userId),
   ]);
   const totalMinutes = tasks.reduce((n, t) => n + t.estimatedMinutes, 0);
   const totalXp = tasks.reduce((n, t) => n + t.xp, 0);

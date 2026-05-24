@@ -6,6 +6,7 @@ import {
   findOpportunityByUrl,
   insertOpportunity,
 } from "@/lib/db/repos";
+import { fetchDevpostHackathons } from "@/lib/services/devpost";
 import type {
   DomainExpansion,
   EventPayload,
@@ -145,16 +146,41 @@ export interface EventAgentResult {
   inserted: OpportunityDoc[];
 }
 
+function dedupeEvents(events: EventSeed[]): EventSeed[] {
+  const seen = new Set<string>();
+  const out: EventSeed[] = [];
+  for (const ev of events) {
+    const key = `${ev.title.toLowerCase().trim()}|${ev.organizer.toLowerCase().trim()}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(ev);
+  }
+  return out;
+}
+
 export async function runEventAgent(
   profile: UserProfile,
   domainExp: DomainExpansion,
 ): Promise<EventAgentResult> {
-  const all = eventsSeed as EventSeed[];
+  const useMock = process.env.USE_MOCK_DATA !== "false";
+  let liveEvents: EventSeed[] = [];
+  if (!useMock) {
+    try {
+      const devpost = await fetchDevpostHackathons();
+      liveEvents = devpost as EventSeed[];
+    } catch (err) {
+      console.warn(
+        "[events] devpost fetch failed, using seed only:",
+        (err as Error).message,
+      );
+    }
+  }
+  const all = dedupeEvents([...liveEvents, ...(eventsSeed as EventSeed[])]);
   const candidates = all
     .map((ev) => ({ ev, score: scoreEvent(profile, domainExp, ev) }))
     .filter((c) => c.score >= 50)
     .sort((a, b) => b.score - a.score)
-    .slice(0, 12);
+    .slice(0, useMock ? 12 : 24);
 
   const now = new Date().toISOString();
   const inserted: OpportunityDoc[] = [];

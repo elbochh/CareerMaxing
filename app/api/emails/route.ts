@@ -1,10 +1,15 @@
 import { NextResponse } from "next/server";
 import { listEmails } from "@/lib/db/repos";
-import { DEFAULT_USER_ID } from "@/types";
+import { requireUserId, unauthorizedResponse } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const emails = await listEmails(DEFAULT_USER_ID);
-  return NextResponse.json({ emails });
+  try {
+    const userId = await requireUserId();
+    const emails = await listEmails(userId);
+    return NextResponse.json({ emails });
+  } catch {
+    return unauthorizedResponse();
+  }
 }

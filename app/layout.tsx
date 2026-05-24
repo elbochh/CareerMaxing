@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
 import { Navbar } from "@/components/Navbar";
+import AuthSessionProvider from "@/components/SessionProvider";
 
 export const metadata: Metadata = {
   title: "CareerMaxing — Your daily AI career agent",
@@ -12,8 +13,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="dark">
       <body>
-        <Navbar />
-        <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
+        <AuthSessionProvider>
+          <Navbar />
+          <main className="mx-auto max-w-7xl px-4 py-8">{children}</main>
+        </AuthSessionProvider>
       </body>
     </html>
   );

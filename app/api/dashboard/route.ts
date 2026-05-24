@@ -7,26 +7,32 @@ import {
   listOpportunities,
 } from "@/lib/db/repos";
 import { weekStartFor } from "@/lib/agents/checklist";
-import { DEFAULT_USER_ID } from "@/types";
+import { requireUserId, unauthorizedResponse } from "@/lib/auth-helpers";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const profile = await getProfile(DEFAULT_USER_ID);
-  const domain = profile ? await getDomainExpansion(DEFAULT_USER_ID) : null;
+  let userId: string;
+  try {
+    userId = await requireUserId();
+  } catch {
+    return unauthorizedResponse();
+  }
+  const profile = await getProfile(userId);
+  const domain = profile ? await getDomainExpansion(userId) : null;
 
   const [jobsNew, eventsNew, coursesNew, jobsApproved, eventsApproved, coursesApproved] =
     await Promise.all([
-      countOpportunities(DEFAULT_USER_ID, "job", "new"),
-      countOpportunities(DEFAULT_USER_ID, "event", "new"),
-      countOpportunities(DEFAULT_USER_ID, "course", "new"),
-      countOpportunities(DEFAULT_USER_ID, "job", "approved"),
-      countOpportunities(DEFAULT_USER_ID, "event", "approved"),
-      countOpportunities(DEFAULT_USER_ID, "course", "approved"),
+      countOpportunities(userId, "job", "new"),
+      countOpportunities(userId, "event", "new"),
+      countOpportunities(userId, "course", "new"),
+      countOpportunities(userId, "job", "approved"),
+      countOpportunities(userId, "event", "approved"),
+      countOpportunities(userId, "course", "approved"),
     ]);
-  const topJobs = (await listOpportunities(DEFAULT_USER_ID, "job", "new")).slice(0, 3);
-  const topEvents = (await listOpportunities(DEFAULT_USER_ID, "event", "new")).slice(0, 3);
-  const tasks = await listAllTasks(DEFAULT_USER_ID);
+  const topJobs = (await listOpportunities(userId, "job", "new")).slice(0, 3);
+  const topEvents = (await listOpportunities(userId, "event", "new")).slice(0, 3);
+  const tasks = await listAllTasks(userId);
   const thisWeek = weekStartFor();
   const weekTasks = tasks.filter((t) => t.weekStart === thisWeek);
   const xpEarned = weekTasks.filter((t) => t.status === "done").reduce((n, t) => n + t.xp, 0);
@@ -36,7 +42,6 @@ export async function GET() {
     .sort((a, b) => (a.dueDate! < b.dueDate! ? -1 : 1))
     .slice(0, 5);
 
-  // CareerMaxing score: weighted blend
   const cmScore = Math.round(
     Math.min(
       100,
